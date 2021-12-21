@@ -27,7 +27,12 @@ def load_video(path, max_frames=0, resize=(IMG_SIZE, IMG_SIZE)):
     cap = cv2.VideoCapture(path)
     frames = []
     frame_labels = []
+
     label = int(path.split("/")[-1].split("-")[2].strip("0")) - 1
+    tmp_label = [0 for i in range(8)]
+    tmp_label[label] = 1
+    label = tmp_label
+
     print("label:", label)
     batches = []
     labels = []
@@ -119,7 +124,7 @@ class EmotionDataset(Sequence):
         
         return_batches, return_labels = self.batches[self.curr_batch_index], self.labels[self.curr_batch_index]
 
-        return return_batches, np.expand_dims(return_labels, axis=1)
+        return return_batches, return_labels
 
 
 if __name__ == "__main__":

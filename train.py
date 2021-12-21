@@ -8,7 +8,7 @@ import keras
 from data_generator import EmotionDataset
 
 # Utility for running experiments.
-def run_experiment(train, test, model, epochs):
+def run_experiment(train, test, val, model, epochs):
     
     filepath = "/tmp/video_classifier"
     checkpoint = keras.callbacks.ModelCheckpoint(
@@ -21,6 +21,7 @@ def run_experiment(train, test, model, epochs):
     history = seq_model.fit(
         train,
         epochs=epochs,
+        validation_data=val,
         callbacks=[checkpoint],
     )
 
@@ -35,7 +36,8 @@ if __name__ == "__main__":
     
     train_data = EmotionDataset("data_emotions_0.02", "train")
     test_data = EmotionDataset("data_emotions_0.05", "test")
+    validation_data = EmotionDataset("data_emotions_0.05", "val")
 
     model = build_model(num_classes=8)
 
-    h, sequence_model = run_experiment(train_data, test_data, model, epochs=2)
+    h, sequence_model = run_experiment(train_data, test_data, validation_data, model, epochs=2)

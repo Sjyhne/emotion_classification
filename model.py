@@ -22,7 +22,7 @@ def build_model(num_classes):
     model = tf.keras.Model(inputs, outputs, name="EfficientNet")
     optimizer = tf.keras.optimizers.Adam(learning_rate=1e-2)
     model.compile(
-        optimizer=optimizer, loss="sparse_categorical_crossentropy", metrics=["accuracy"]
+        optimizer=optimizer, loss="categorical_crossentropy", metrics=["accuracy"]
     )
 
     return model
