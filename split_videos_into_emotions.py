@@ -6,7 +6,7 @@ random.seed(0)
 
 source_dir = "data"
 
-test_data_size = 0.02
+test_data_size = 0.1
 
 if test_data_size != None:
     target_dir = "data_emotions_" + str(test_data_size)
@@ -30,14 +30,14 @@ for path in sorted(os.listdir(source_dir)):
     if not "." in path:
         if test_data_size != None:
             for file in sorted(os.listdir(os.path.join(source_dir, path))[:int(test_data_size*len(os.listdir(os.path.join(source_dir, path))))]):
-                if file.split("-")[0] == "02":
-                    print(file.split("-"))
+                if file.split("-")[0] == "02" and file.split("-")[3] == "01":
+                    print("split:", file.split("-"))
                     emotion_index = int(file.split("-")[2].strip("0"))
                     emotion_paths[emotions[emotion_index - 1]].append(os.path.join(source_dir, path, file))
                     files += 1
         else:
             for file in sorted(os.listdir(os.path.join(source_dir, path))):
-                if file.split("-")[0] == "02":
+                if file.split("-")[0] == "02" and file.split("-")[3] == "01":
                     print(file.split("-"))
                     emotion_index = int(file.split("-")[2].strip("0"))
                     emotion_paths[emotions[emotion_index - 1]].append(os.path.join(source_dir, path, file))

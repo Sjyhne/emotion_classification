@@ -1,9 +1,11 @@
 import tensorflow as tf
 
-from model import build_model
+from model import build_efficientnet, build_inception, build_vgg, build_resnet
 
 from tensorflow.keras.applications.efficientnet import EfficientNetB0
-import keras
+from tensorflow import keras
+
+import json
 
 from data_generator import EmotionDataset
 
@@ -14,8 +16,6 @@ def run_experiment(train, test, val, model, epochs):
     checkpoint = keras.callbacks.ModelCheckpoint(
         filepath, save_weights_only=True, save_best_only=True, verbose=1
     )
-
-    print(train[0][0].shape, train[0][1].shape)
 
     seq_model = model
     history = seq_model.fit(
@@ -34,10 +34,18 @@ def run_experiment(train, test, val, model, epochs):
 
 if __name__ == "__main__":
     
-    train_data = EmotionDataset("data_emotions_0.02", "train")
-    test_data = EmotionDataset("data_emotions_0.05", "test")
-    validation_data = EmotionDataset("data_emotions_0.05", "val")
+    dataset_name = "data_emotions"
+    
+    train_data = EmotionDataset(dataset_name, "train")
+    test_data = EmotionDataset(dataset_name, "test")
+    validation_data = EmotionDataset(dataset_name, "val")
+    
+    epochs = 10
 
-    model = build_model(num_classes=8)
+    model = build_efficientnet(num_classes=8)
 
-    h, sequence_model = run_experiment(train_data, test_data, validation_data, model, epochs=2)
+    h, sequence_model = run_experiment(train_data, test_data, validation_data, model, epochs=epochs)
+    
+    json.dump(h.history, open(f"results/{dataset_name}/vgg_history_{epochs}_imagenet.json", 'w'))
+    
+    

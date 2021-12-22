@@ -13,7 +13,7 @@ from tqdm import tqdm
 from tensorflow.keras.utils import Sequence
 
 IMG_SIZE = 224
-BATCH_SIZE = 32
+BATCH_SIZE = 8
 
 def crop_center_square(frame):
     y, x = frame.shape[0:2]
@@ -33,7 +33,6 @@ def load_video(path, max_frames=0, resize=(IMG_SIZE, IMG_SIZE)):
     tmp_label[label] = 1
     label = tmp_label
 
-    print("label:", label)
     batches = []
     labels = []
     try:
@@ -53,8 +52,7 @@ def load_video(path, max_frames=0, resize=(IMG_SIZE, IMG_SIZE)):
                 labels.append(np.array(frame_labels))
                 frames = []
                 frame_labels = []
-            if len(frames) == max_frames:
-                break
+
     finally:
         cap.release()
         while len(frames) < BATCH_SIZE:
@@ -62,6 +60,7 @@ def load_video(path, max_frames=0, resize=(IMG_SIZE, IMG_SIZE)):
             frame_labels.append(np.array(label))
         batches.append(np.array(frames))
         labels.append(np.array(frame_labels))
+    
     
     return np.array(batches), np.array(labels)
 
@@ -72,15 +71,15 @@ class EmotionDataset(Sequence):
         self.path_to_videos = path_to_videos
         self.datatype = datatype
         self.video_paths = self.get_all_filepaths()
-        self.batchsize = 32
+        self.batchsize = BATCH_SIZE
         self.n_batches = self.calculate_batches()
 
         self.curr_file_index = 0
         self.curr_batch_index = 0
-        self.curr_batch_array_size = 1
+        self.curr_batch_array_size = 0
 
-        self.batches = None
-        self.labels = None
+        self.batches = []
+        self.labels = []
 
         print(self.n_batches)
 
@@ -106,37 +105,44 @@ class EmotionDataset(Sequence):
                 frame_count += 1
             
             n_batches = math.ceil(frame_count / self.batchsize)
-            print("n_batches:", n_batches)
 
             tot_batches += n_batches
         
-        return tot_batches
+        return tot_batches - 1
     
     def __len__(self):
         return self.n_batches
     
     def __getitem__(self, idx):
-        if self.curr_batch_index == self.curr_batch_array_size - 1:
-            print("Loading video")
-            self.batches, self.labels = load_video(self.video_paths[self.curr_batch_index])
-            self.curr_batch_array_size = len(self.batches)
+        
+        if self.curr_batch_index == self.curr_batch_array_size:
+            self.curr_batch_index = 0
+            self.batches, self.labels = load_video(self.video_paths[self.curr_file_index])
+            self.curr_batch_array_size = self.batches.shape[0]
             self.curr_file_index += 1
         
+        
         return_batches, return_labels = self.batches[self.curr_batch_index], self.labels[self.curr_batch_index]
+        
+        self.curr_batch_index += 1
+        
+        if self.curr_file_index == len(self.video_paths) - 1:
+            self.curr_file_index = 0
+            self.curr_batch_index = 0
 
         return return_batches, return_labels
 
 
 if __name__ == "__main__":
 
-    train_data = EmotionDataset("data_emotions_0.02", "train")
+    train_data = EmotionDataset("data_emotions_0.1", "train")
 
     print(len(train_data))
 
     for d, l in iter(train_data):
         print(d.shape, l.shape)
-        plt.imshow(d[27])
-        plt.show()
+        print(d[0], l[0])
+        exit()
     
 
     #for file in os.listdir("data_emotions/happy/train"):
