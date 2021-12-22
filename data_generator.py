@@ -10,6 +10,8 @@ import random
 
 from tqdm import tqdm
 
+import soundfile as sf
+
 from tensorflow.keras.utils import Sequence
 
 IMG_SIZE = 224
@@ -64,6 +66,12 @@ def load_video(path, max_frames=0, resize=(IMG_SIZE, IMG_SIZE)):
         labels.append(np.array(frame_labels))
     
     return np.array(batches), np.array(labels)
+
+
+def load_audio(path):
+    data, samplerate = sf.read(path)
+    print(data.shape)
+    print(samplerate.shape)
 
 class EmotionDataset(Sequence):
 
@@ -127,16 +135,19 @@ class EmotionDataset(Sequence):
         return return_batches, return_labels
 
 
+class AudioEmotionDataset(Sequence):
+    def __init__(self) -> None:
+        super().__init__()
+
+    def __len__(self):
+        ...
+
+    def __getitem__(self, idx):
+        ...
+
 if __name__ == "__main__":
 
-    train_data = EmotionDataset("data_emotions_0.02", "train")
-
-    print(len(train_data))
-
-    for d, l in iter(train_data):
-        print(d.shape, l.shape)
-        plt.imshow(d[27])
-        plt.show()
+    load_audio("audio_data_emotions/calm/train/03-01-02-01-01-01-03.wav")
     
 
     #for file in os.listdir("data_emotions/happy/train"):
