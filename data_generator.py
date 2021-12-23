@@ -92,13 +92,18 @@ class AudioEmotionDataset(Sequence):
         super().__init__()
         self.path_to_images = path_to_images
         self.datatype = datatype
+        print("Creating AudioEmotionDataset from", self.path_to_images, "of datatype", self.datatype)
+        print("Getting image paths")
         self.image_paths = self.get_image_paths()
         self.batchsize = batchsize
+        print("Creating batches")
         self.image_batches = self.get_image_batches()
 
         self.img_h = 318
         self.img_w = 128
-        self.channels = 4
+        self.channels = 3
+    
+        print("img_h:", self.img_h, "- img_w:", self.img_w, "- channels:", self.channels)
 
 
     
@@ -121,8 +126,11 @@ class AudioEmotionDataset(Sequence):
                 batch = []
             
         if len(batch) != self.batchsize:
-            while len(batch) != self.batchsize:
+            while True:
                 batch.append(random.choice(self.image_paths))
+                if len(batch) >= self.batchsize:
+                    print(len(batch), ">=", self.batchsize)
+                    break
             
             batches.append(batch)
         
@@ -135,10 +143,13 @@ class AudioEmotionDataset(Sequence):
     def __getitem__(self, idx):
         image_batch = self.image_batches[idx]
         images = np.empty((self.batchsize, self.img_h, self.img_w, self.channels))
-        labels = np.empty((self.batchsize, 1))
+        labels = np.empty((self.batchsize, 8))
         for i, path in enumerate(image_batch):
-            images[i] = plt.imread(path)
-            labels[i] = int(path.split("/")[-1].split("-")[2].strip("0")) - 1
+            images[i] = plt.imread(path)[:, :, :3]
+            l = int(path.split("/")[-1].split("-")[2].strip("0")) - 1
+            tmp_label = [0 for i in range(8)]
+            tmp_label[l] = 1
+            labels[i] = np.array(tmp_label)
 
         
         return images, labels
@@ -147,7 +158,9 @@ class AudioEmotionDataset(Sequence):
 
 if __name__ == "__main__":
 
-    data = AudioEmotionDataset("audio_data_emotions_0.1", 16)
+    data = AudioEmotionDataset("audio_data_emotions", 16)
 
     print(data[0][0].shape)
     print(data[0][1].shape)
+
+    print(data[0][0][:, :, :, 3])

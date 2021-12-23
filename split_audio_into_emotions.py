@@ -13,7 +13,7 @@ random.seed(0)
 
 source_dir = "audio_data"
 
-test_data_size = 0.1
+test_data_size = None
 
 if test_data_size != None:
     target_dir = "audio_data_emotions_" + str(test_data_size)

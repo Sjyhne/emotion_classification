@@ -1,6 +1,6 @@
 import tensorflow as tf
 
-from model import build_efficientnet, build_inception, build_vgg, build_resnet
+from model import build_efficientnet, build_inception, build_vgg, build_resnet, build_blstm
 
 from tensorflow import keras
 
@@ -33,17 +33,21 @@ def run_experiment(train, test, val, model, epochs):
 
 if __name__ == "__main__":
     
-    dataset_name = "audio_data_emotions_0.1"
+    dataset_name = "audio_data_emotions"
     
-    train_data = AudioEmotionDataset(dataset_name, "train")
-    test_data = AudioEmotionDataset(dataset_name, "test")
-    validation_data = AudioEmotionDataset(dataset_name, "val")
+    bsize = 16
+    
+    train_data = AudioEmotionDataset(dataset_name, bsize, "train")
+    test_data = AudioEmotionDataset(dataset_name, bsize, "test")
+    validation_data = AudioEmotionDataset(dataset_name, bsize, "val")
 
     img_size = (train_data.img_h, train_data.img_w)
     
-    epochs = 10
+    epochs = 100
 
     model = build_efficientnet(num_classes=8, img_size=img_size)
+    
+    print(train_data[0][0].shape)
 
     h, sequence_model = run_experiment(train_data, test_data, validation_data, model, epochs=epochs)
     

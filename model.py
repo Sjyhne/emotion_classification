@@ -5,24 +5,28 @@ from tensorflow.keras.applications.inception_v3 import InceptionV3
 from tensorflow.keras.applications import ResNet50
 from tensorflow.keras import optimizers
 
-from tensorflow.keras.optimizers import RMSprop
+from tensorflow.keras.optimizers import RMSprop, Adam
 
 from data_generator import IMG_SIZE
 import tensorflow as tf
-from tensorflow.keras.layers import Flatten, Dense, Dropout
+from tensorflow.keras.layers import Flatten, Dense, Dropout, Layer, Bidirectional, LSTM, Attention, ELU
 from tensorflow.keras import Model, Sequential
+import tensorflow.keras as K
+import tensorflow.keras.initializers as initializers
+import tensorflow.keras.regularizers as regularizers
+import tensorflow.keras.constraints as constraints
 
-def build_efficientnet(num_classes, img_size=(IMG_SIZE, IMG_SIZE)):
+def build_efficientnet(num_classes, img_size=(IMG_SIZE, IMG_SIZE), channels=3):
     
-    base_model = EfficientNetB7(input_shape = (img_size[0], img_size[1], 3), include_top = False, weights = 'imagenet')
+    base_model = EfficientNetB7(input_shape = (img_size[0], img_size[1], channels), include_top = False, weights='imagenet')
     
     for layer in base_model.layers:
-        layer.trainable = False
+        layer.trainable = True
     
     x = base_model.output
     x = Flatten()(x)
     x = Dense(1024, activation="relu")(x)
-    x = Dropout(0.3)(x)
+    x = Dropout(0.5)(x)
 
     # Add a final sigmoid layer with 1 node for classification output
     predictions = Dense(num_classes, activation="softmax")(x)
@@ -79,17 +83,97 @@ def build_inception(num_classes):
     
     return model
 
-def build_resnet(num_classes):
+def build_resnet(num_classes, img_size=(IMG_SIZE, IMG_SIZE)):
 
-    res_model = ResNet50(input_shape=(IMG_SIZE, IMG_SIZE, 3), include_top=False, weights="imagenet", pooling="max")
+    res_model = ResNet50(input_shape=(img_size[0], img_size[1], 3), include_top=False, weights=None, pooling="max")
     
     for layer in res_model.layers:
-        layer.trainable = False
+        layer.trainable = True
     
     base_model = Sequential()
     base_model.add(res_model)
     base_model.add(Dense(num_classes, activation='softmax'))
     
-    base_model.compile(optimizer = tf.keras.optimizers.SGD(lr=0.0001), loss = 'binary_crossentropy', metrics = ['acc'])
+    base_model.compile(optimizer = tf.keras.optimizers.SGD(lr=0.0001), loss = 'categorical_crossentropy', metrics = ['acc'])
     
     return base_model
+
+
+class AttentionTest(Layer):
+    def __init__(self, step_dim,
+                 W_regularizer=None, b_regularizer=None,
+                 W_constraint=None, b_constraint=None,
+                 bias=True, **kwargs):
+        self.supports_masking = True
+        self.init = initializers.get('glorot_uniform')
+        self.W_regularizer = regularizers.get(W_regularizer)
+        self.b_regularizer = regularizers.get(b_regularizer)
+        self.W_constraint = constraints.get(W_constraint)
+        self.b_constraint = constraints.get(b_constraint)
+        self.bias = bias
+        self.step_dim = step_dim
+        self.features_dim = 0
+        super(Attention, self).__init__(**kwargs)
+
+    def build(self, input_shape):
+        assert len(input_shape) == 3
+
+        self.W = self.add_weight((input_shape[-1],),
+                                 initializer=self.init,
+                                 name='{}_W'.format(self.name),
+                                 regularizer=self.W_regularizer,
+                                 constraint=self.W_constraint)
+        self.features_dim = input_shape[-1]
+
+        if self.bias:
+            self.b = self.add_weight((input_shape[1],),
+                                     initializer='zero',
+                                     name='{}_b'.format(self.name),
+                                     regularizer=self.b_regularizer,
+                                     constraint=self.b_constraint)
+        else:
+            self.b = None
+        self.built = True
+
+    def compute_mask(self, input, input_mask=None):
+        return None
+
+    def call(self, x, mask=None):
+        features_dim = self.features_dim
+        step_dim = self.step_dim
+
+        eij = K.reshape(K.dot(K.reshape(x, (-1, features_dim)),
+                        K.reshape(self.W, (features_dim, 1))), (-1, step_dim))
+        if self.bias:
+            eij += self.b
+        eij = K.tanh(eij)
+        a = K.exp(eij)
+        if mask is not None:
+            a *= K.cast(mask, K.floatx())
+        a /= K.cast(K.sum(a, axis=1, keepdims=True) + K.epsilon(), K.floatx())
+        a = K.expand_dims(a)
+        weighted_input = x * a
+        return K.sum(weighted_input, axis=1)
+
+    def compute_output_shape(self, input_shape):
+        return input_shape[0],  self.features_dim
+    
+def build_blstm(num_classes, img_size, channels):
+    # Neural network model
+    input_shape = (img_size[0], img_size[1])
+    optimizer = Adam(0.005, beta_1=0.1, beta_2=0.001, amsgrad=True)
+    n_classes = num_classes
+
+    model = Sequential()
+    model.add(Bidirectional(LSTM(256, return_sequences=True), input_shape=input_shape))
+    model.add(AttentionTest(img_size[0]))
+    model.add(Dropout(0.2))
+    model.add(Dense(400))
+    model.add(ELU())
+    model.add(Dropout(0.2)) 
+    model.add(Dense(n_classes, activation='softmax'))
+    model.compile(loss='categorical_crossentropy',
+                  optimizer=optimizer,
+                  metrics=['acc'])
+    
+    return model
