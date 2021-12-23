@@ -12,9 +12,9 @@ import tensorflow as tf
 from tensorflow.keras.layers import Flatten, Dense, Dropout
 from tensorflow.keras import Model, Sequential
 
-def build_efficientnet(num_classes):
+def build_efficientnet(num_classes, img_size=(IMG_SIZE, IMG_SIZE)):
     
-    base_model = EfficientNetB7(input_shape = (IMG_SIZE, IMG_SIZE, 3), include_top = False, weights = 'imagenet')
+    base_model = EfficientNetB7(input_shape = (img_size[0], img_size[1], 3), include_top = False, weights = 'imagenet')
     
     for layer in base_model.layers:
         layer.trainable = False
@@ -28,7 +28,7 @@ def build_efficientnet(num_classes):
     predictions = Dense(num_classes, activation="softmax")(x)
     model_final = Model(inputs=base_model.input, outputs=predictions)
     
-    model_final.compile(optimizer=tf.keras.optimizers.RMSprop(lr=0.0001), loss='categorical_crossentropy',metrics=['accuracy'])
+    model_final.compile(optimizer=tf.keras.optimizers.RMSprop(lr=0.0001), loss='categorical_crossentropy', metrics=['accuracy'])
 
     return model_final
 

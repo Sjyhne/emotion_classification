@@ -2,13 +2,18 @@ import os
 import random
 import shutil
 
-import soundfile as sf
+from audio_utils import read_as_melspectrogram, normalize
+
+import matplotlib.pyplot as plt
+import numpy as np
+from tqdm import tqdm
+from PIL import Image
 
 random.seed(0)
 
 source_dir = "audio_data"
 
-test_data_size = None
+test_data_size = 0.1
 
 if test_data_size != None:
     target_dir = "audio_data_emotions_" + str(test_data_size)
@@ -81,26 +86,29 @@ for k, v in trainval_data.items():
 
 
 print("Moving over training data...")
-for k, v in train_data.items():
+for k, v in tqdm(train_data.items(), total=len(train_data.items())):
     print(k, len(v))
     for path in v:
-        dst_path = os.path.join(target_dir, k, "train", path.split("/")[-1])
+        dst_path = os.path.join(target_dir, k, "train", path.split("/")[-1].split(".")[0] + ".png")
         if not os.path.exists(dst_path):
-            shutil.copy(path, dst_path)
+            tmp_img = read_as_melspectrogram(path)
+            plt.imsave(dst_path, normalize(tmp_img))
 
 print("Moving over testing data...")
-for k, v in test_data.items():
+for k, v in tqdm(test_data.items(), total=len(test_data.items())):
     print(k, len(v))
     for path in v:
-        dst_path = os.path.join(target_dir, k, "test", path.split("/")[-1])
+        dst_path = os.path.join(target_dir, k, "test", path.split("/")[-1].split(".")[0] + ".png")
         if not os.path.exists(dst_path):
-            shutil.copy(path, dst_path)
+            tmp_img = read_as_melspectrogram(path)
+            plt.imsave(dst_path, normalize(tmp_img))
 
 print("Moving over validation data...")
-for k, v in val_data.items():
+for k, v in tqdm(val_data.items(), total=len(val_data.items())):
     print(k, len(v))
     for path in v:
-        dst_path = os.path.join(target_dir, k, "val", path.split("/")[-1])
+        dst_path = os.path.join(target_dir, k, "val", path.split("/")[-1].split(".")[0] + ".png")
         if not os.path.exists(dst_path):
-            shutil.copy(path, dst_path)
+            tmp_img = read_as_melspectrogram(path)
+            plt.imsave(dst_path, normalize(tmp_img))
 

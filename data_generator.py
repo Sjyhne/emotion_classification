@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 import os
+from video_utils import IMG_SIZE, BATCH_SIZE
 
 import tensorflow as tf
 
@@ -9,68 +10,13 @@ import math
 import random
 
 from tqdm import tqdm
+import librosa
 
-import soundfile as sf
+from video_utils import load_video
 
 from tensorflow.keras.utils import Sequence
 
-IMG_SIZE = 224
-BATCH_SIZE = 8
-
-def crop_center_square(frame):
-    y, x = frame.shape[0:2]
-    min_dim = min(y, x)
-    start_x = (x // 2) - (min_dim // 2)
-    start_y = (y // 2) - (min_dim // 2)
-    return frame[start_y : start_y + min_dim, start_x : start_x + min_dim]
-
-
-def load_video(path, max_frames=0, resize=(IMG_SIZE, IMG_SIZE)):
-    cap = cv2.VideoCapture(path)
-    frames = []
-    frame_labels = []
-
-    label = int(path.split("/")[-1].split("-")[2].strip("0")) - 1
-    tmp_label = [0 for i in range(8)]
-    tmp_label[label] = 1
-    label = tmp_label
-
-    batches = []
-    labels = []
-    try:
-        while True:
-            ret, frame = cap.read()
-            if not ret:
-                break
-            frame = crop_center_square(frame)
-            frame = cv2.resize(frame, resize)
-            frame = frame[:, :, [2, 1, 0]]
-            
-            frames.append(frame)
-            frame_labels.append(np.array(label))
-
-            if len(frames) == BATCH_SIZE:
-                batches.append(np.array(frames))
-                labels.append(np.array(frame_labels))
-                frames = []
-                frame_labels = []
-
-    finally:
-        cap.release()
-        while len(frames) < BATCH_SIZE:
-            frames.append(np.full((IMG_SIZE, IMG_SIZE, 3), 255))
-            frame_labels.append(np.array(label))
-        batches.append(np.array(frames))
-        labels.append(np.array(frame_labels))
-    
-    
-    return np.array(batches), np.array(labels)
-
-
-def load_audio(path):
-    data, samplerate = sf.read(path)
-    print(data.shape)
-    print(samplerate.shape)
+from audio_utils import read_audio, read_as_melspectrogram, normalize
 
 class EmotionDataset(Sequence):
 
@@ -142,20 +88,66 @@ class EmotionDataset(Sequence):
 
 
 class AudioEmotionDataset(Sequence):
-    def __init__(self) -> None:
+    def __init__(self, path_to_images, batchsize, datatype="train") -> None:
         super().__init__()
+        self.path_to_images = path_to_images
+        self.datatype = datatype
+        self.image_paths = self.get_image_paths()
+        self.batchsize = batchsize
+        self.image_batches = self.get_image_batches()
+
+        self.img_h = 318
+        self.img_w = 128
+        self.channels = 4
+
+
+    
+    def get_image_paths(self):
+        image_paths = []
+        for emotion in os.listdir(self.path_to_images):
+            for file in os.listdir(os.path.join(self.path_to_images, emotion, self.datatype)):
+                image_paths.append(os.path.join(self.path_to_images, emotion, self.datatype, file))
+        
+        random.shuffle(image_paths)
+        return image_paths
+    
+    def get_image_batches(self):
+        batches = []
+        batch = []
+        for path in self.image_paths:
+            batch.append(path)
+            if len(batch) == self.batchsize:
+                batches.append(batch)
+                batch = []
+            
+        if len(batch) != self.batchsize:
+            while len(batch) != self.batchsize:
+                batch.append(random.choice(self.image_paths))
+            
+            batches.append(batch)
+        
+        return batches
+
 
     def __len__(self):
-        ...
+        return math.ceil(len(self.image_paths)/self.batchsize)
 
     def __getitem__(self, idx):
-        ...
+        image_batch = self.image_batches[idx]
+        images = np.empty((self.batchsize, self.img_h, self.img_w, self.channels))
+        labels = np.empty((self.batchsize, 1))
+        for i, path in enumerate(image_batch):
+            images[i] = plt.imread(path)
+            labels[i] = int(path.split("/")[-1].split("-")[2].strip("0")) - 1
+
+        
+        return images, labels
+
+        
 
 if __name__ == "__main__":
 
-    load_audio("audio_data_emotions/calm/train/03-01-02-01-01-01-03.wav")
-    
+    data = AudioEmotionDataset("audio_data_emotions_0.1", 16)
 
-    #for file in os.listdir("data_emotions/happy/train"):
-    #    batches = load_video("data_emotions/happy/train/" + file)
-    #    print(batches.shape)
+    print(data[0][0].shape)
+    print(data[0][1].shape)
