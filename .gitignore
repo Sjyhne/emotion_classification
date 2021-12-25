@@ -136,3 +136,5 @@ env/
 __pycache__/
 
 howamifeeling/node_modules
+IEMOCAP*
+dataverse_files.zip

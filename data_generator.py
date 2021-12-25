@@ -12,6 +12,8 @@ import random
 from tqdm import tqdm
 import librosa
 
+from json import load
+
 from video_utils import load_video
 
 from tensorflow.keras.utils import Sequence
@@ -154,13 +156,45 @@ class AudioEmotionDataset(Sequence):
         
         return images, labels
 
-        
+    
+class AudioFeatureEmotionDataset(Sequence):
+    def __init__(self, path_to_data: str, bsize: int, datatype: str) -> None:
+        super().__init__()
+
+        self.path_to_data = path_to_data
+        self.datatype = datatype
+        self.data = load(open(os.path.join(self.path_to_data, f"{self.datatype}_features.json"), "r"))
+        self.labels = load(open(os.path.join(self.path_to_data, f"{self.datatype}_labels.json"), "r"))
+        self.shuffle_labels_and_data()
+
+        self.batch_size = bsize
+
+    
+    def shuffle_labels_and_data(self):
+        zipped = list(zip(self.data, self.labels))
+        random.shuffle(zipped)
+        self.data = []
+        self.labels = []
+        for item in zipped:
+            self.data.append(item[0])
+            self.labels.append(item[1])
+        self.data = np.array(self.data, dtype=np.float32)
+        self.labels = np.array(self.labels, dtype=np.int8)
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, idx):
+
+        xbatch = self.data[idx * self.batch_size:(idx + 1) * self.batch_size]
+        ybatch = self.labels[idx * self.batch_size:(idx + 1) * self.batch_size]
+
+        return xbatch, ybatch
 
 if __name__ == "__main__":
 
-    data = AudioEmotionDataset("audio_data_emotions", 16)
+    dataset = AudioFeatureEmotionDataset("audio_data_emotions_features_0.1", "val")
 
-    print(data[0][0].shape)
-    print(data[0][1].shape)
-
-    print(data[0][0][:, :, :, 3])
+    d, l = dataset[0]
+    print(d.shape)
+    print(l.shape)

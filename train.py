@@ -1,15 +1,15 @@
 import tensorflow as tf
 
-from model import build_efficientnet, build_inception, build_vgg, build_resnet, build_blstm
+from model import build_efficientnet, build_inception, build_lstm, build_vgg, build_resnet
 
 from tensorflow import keras
 
 import json
 
-from data_generator import EmotionDataset, AudioEmotionDataset
+from data_generator import AudioFeatureEmotionDataset, EmotionDataset, AudioEmotionDataset
 
 # Utility for running experiments.
-def run_experiment(train, test, val, model, epochs):
+def run_experiment(train, test, val, model, epochs, batchsize):
     
     filepath = "/tmp/video_classifier"
     checkpoint = keras.callbacks.ModelCheckpoint(
@@ -20,6 +20,7 @@ def run_experiment(train, test, val, model, epochs):
     history = seq_model.fit(
         train,
         epochs=epochs,
+        batch_size=batchsize,
         validation_data=val,
         callbacks=[checkpoint],
     )
@@ -33,23 +34,25 @@ def run_experiment(train, test, val, model, epochs):
 
 if __name__ == "__main__":
     
-    dataset_name = "audio_data_emotions"
+    dataset_name = "audio_data_emotions_features_0.1"
     
-    bsize = 16
+    bsize = 4
     
-    train_data = AudioEmotionDataset(dataset_name, bsize, "train")
-    test_data = AudioEmotionDataset(dataset_name, bsize, "test")
-    validation_data = AudioEmotionDataset(dataset_name, bsize, "val")
+    train_data = AudioFeatureEmotionDataset(dataset_name, bsize, "train")
+    test_data = AudioFeatureEmotionDataset(dataset_name, bsize, "test")
+    validation_data = AudioFeatureEmotionDataset(dataset_name, bsize, "val")
 
-    img_size = (train_data.img_h, train_data.img_w)
-    
+    inp_shape = train_data[0][0].shape[1:]
+
+    print("inp_shape:", inp_shape)
+
     epochs = 100
 
-    model = build_efficientnet(num_classes=8, img_size=img_size)
+    model = build_lstm(num_classes=8, inp_shape=inp_shape)
     
     print(train_data[0][0].shape)
 
-    h, sequence_model = run_experiment(train_data, test_data, validation_data, model, epochs=epochs)
+    h, sequence_model = run_experiment(train_data, test_data, validation_data, model, epochs=epochs, batchsize=bsize)
     
     json.dump(h.history, open(f"results/audio/{dataset_name}/efficientnet_history_{epochs}_imagenet.json", 'w'))
     

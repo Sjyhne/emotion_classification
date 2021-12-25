@@ -158,22 +158,16 @@ class AttentionTest(Layer):
     def compute_output_shape(self, input_shape):
         return input_shape[0],  self.features_dim
     
-def build_blstm(num_classes, img_size, channels):
-    # Neural network model
-    input_shape = (img_size[0], img_size[1])
-    optimizer = Adam(0.005, beta_1=0.1, beta_2=0.001, amsgrad=True)
-    n_classes = num_classes
-
+def build_lstm(num_classes, inp_shape):
     model = Sequential()
-    model.add(Bidirectional(LSTM(256, return_sequences=True), input_shape=input_shape))
-    model.add(AttentionTest(img_size[0]))
-    model.add(Dropout(0.2))
-    model.add(Dense(400))
-    model.add(ELU())
-    model.add(Dropout(0.2)) 
-    model.add(Dense(n_classes, activation='softmax'))
-    model.compile(loss='categorical_crossentropy',
-                  optimizer=optimizer,
-                  metrics=['acc'])
-    
+    model.add(layers.LSTM(32, return_sequences=True, input_shape=(inp_shape)))
+    model.add(layers.LSTM(32))
+    model.add(layers.Dense(num_classes, activation = 'softmax'))
+    print(model.summary())
+
+    # Compile & train   
+    model.compile(loss='categorical_crossentropy', 
+                    optimizer='RMSProp', 
+                    metrics=['categorical_accuracy'])
+
     return model
