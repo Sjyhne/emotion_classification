@@ -1,3 +1,4 @@
+import json
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
@@ -163,37 +164,69 @@ class AudioFeatureEmotionDataset(Sequence):
 
         self.path_to_data = path_to_data
         self.datatype = datatype
-        self.data = load(open(os.path.join(self.path_to_data, f"{self.datatype}_features.json"), "r"))
-        self.labels = load(open(os.path.join(self.path_to_data, f"{self.datatype}_labels.json"), "r"))
-        self.shuffle_labels_and_data()
-
         self.batch_size = bsize
+
+        self.feature_paths = [os.path.join(self.path_to_data, self.datatype, "features", file) for file in sorted(os.listdir(os.path.join(self.path_to_data, self.datatype, "features")))]
+        self.label_paths = [os.path.join(self.path_to_data, self.datatype, "labels", file) for file in sorted(os.listdir(os.path.join(self.path_to_data, self.datatype, "labels")))]
+        self.shuffle_labels_and_data()
+        self.create_batches()
+
 
     
     def shuffle_labels_and_data(self):
-        zipped = list(zip(self.data, self.labels))
+        zipped = list(zip(self.feature_paths, self.label_paths))
         random.shuffle(zipped)
-        self.data = []
-        self.labels = []
+        self.data_paths = []
+        self.label_paths = []
         for item in zipped:
-            self.data.append(item[0])
-            self.labels.append(item[1])
-        self.data = np.array(self.data, dtype=np.float32)
-        self.labels = np.array(self.labels, dtype=np.int8)
+            self.data_paths.append(item[0])
+            self.label_paths.append(item[1])
+    
+    def create_batches(self):
+        self.feature_batches = []
+        self.label_batches = []
+        tmp_feature_batch = []
+        tmp_label_batch = []
+        for i in range(len(self.data_paths)):
+            tmp_feature_batch.append(self.data_paths[i])
+            tmp_label_batch.append(self.label_paths[i])
+            if (i + 1) % self.batch_size == 0:
+                self.feature_batches.append(tmp_feature_batch)
+                self.label_batches.append(tmp_label_batch)
+                tmp_feature_batch = []
+                tmp_label_batch = []
+        
+        if len(tmp_feature_batch) != 0:
+            for i in range(self.batch_size - len(tmp_feature_batch)):
+                r = random.choice(range(len(self.data_paths)))
+                tmp_feature_batch.append(self.data_paths[r])
+                tmp_label_batch.append(self.label_paths[r])
+            
+            self.feature_batches.append(tmp_feature_batch)
+            self.label_batches.append(tmp_label_batch)
+        
+        self.feature_batches = np.asarray(self.feature_batches)
+        self.label_batches = np.asarray(self.label_batches)
 
     def __len__(self):
         return len(self.data)
 
     def __getitem__(self, idx):
 
-        xbatch = self.data[idx * self.batch_size:(idx + 1) * self.batch_size]
-        ybatch = self.labels[idx * self.batch_size:(idx + 1) * self.batch_size]
+        feature_batch_paths = self.feature_batches[idx]
+        label_batch_paths = self.label_batches[idx]
 
-        return xbatch, ybatch
+        for i in range(len(feature_batch_paths)):
+            assert feature_batch_paths[i].split("/")[-1] == label_batch_paths[i].split("/")[-1]
+
+        feature_batch_paths = np.asarray([json.load(open(path, "r")) for path in feature_batch_paths])
+        label_batch_paths = np.asarray([json.load(open(path, "r")) for path in label_batch_paths])
+
+        return feature_batch_paths.squeeze(), label_batch_paths.squeeze()
 
 if __name__ == "__main__":
 
-    dataset = AudioFeatureEmotionDataset("audio_data_emotions_features_0.1", "val")
+    dataset = AudioFeatureEmotionDataset("audio_data_emotions_features_0.1", 4, "val")
 
     d, l = dataset[0]
     print(d.shape)

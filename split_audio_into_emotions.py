@@ -158,11 +158,6 @@ def create_spectrogram_and_save_images(data, datatype):
                 plt.imsave(dst_path, normalize(tmp_img))
 
 def construct_and_save_features(data, datatype):
-    # Initialize data lists
-    rms = []
-    zcr = []
-    mfcc = []
-    emotions = []
 
     # Initialize variables
     total_length = longest_audio_clip # desired frame length for all of the audio samples.
@@ -171,11 +166,19 @@ def construct_and_save_features(data, datatype):
 
     corruped_paths = []
 
+    os.makedirs(os.path.join(target_dir, datatype, "features"))
+    os.makedirs(os.path.join(target_dir, datatype, "labels"))
+
 
     print(f"Creating features for {datatype} data")
     for k, v in tqdm(data.items(), total=len(data.items())):
         print(k, len(v))
+        # Initialize data lists
         for path in v:
+            rms = []
+            zcr = []
+            mfcc = []
+            emotions = []
             # Fetch the sample rate.
             _, sr = librosa.load(path=path, sr = None)
             # Load the audio file.
@@ -211,42 +214,42 @@ def construct_and_save_features(data, datatype):
                     label = emotion_to_index[l]
             else:
                 label = int(path.split("-")[2].strip("0")) - 1
-                
+
             # Filling the data lists  
             rms.append(f1)
             zcr.append(f2)
             mfcc.append(f3)
             emotions.append(label)
 
-    f_rms = np.asarray(rms).astype('float32')
-    f_rms = np.swapaxes(f_rms,1,2)
-    f_zcr = np.asarray(zcr).astype('float32')
-    f_zcr = np.swapaxes(f_zcr,1,2)
-    f_mfccs = np.asarray(mfcc).astype('float32')
-    f_mfccs = np.swapaxes(f_mfccs,1,2)
 
-    print('ZCR shape:',f_zcr.shape)
-    print('RMS shape:',f_rms.shape)
-    print('MFCCs shape:',f_mfccs.shape)
 
-    # Concatenating all features to 'X' variable.
-    X = np.concatenate((f_zcr, f_rms, f_mfccs), axis=2)
+            f_rms = np.asarray(rms).astype('float32')
+            f_rms = np.swapaxes(f_rms,1,2)
+            f_zcr = np.asarray(zcr).astype('float32')
+            f_zcr = np.swapaxes(f_zcr,1,2)
+            f_mfccs = np.asarray(mfcc).astype('float32')
+            f_mfccs = np.swapaxes(f_mfccs,1,2)
 
-    # Preparing 'Y' as a 2D shaped variable.
-    Y = np.asarray(emotions).astype('int8')
-    Y = np.expand_dims(Y, axis=1)
+            print('ZCR shape:',f_zcr.shape)
+            print('RMS shape:',f_rms.shape)
+            print('MFCCs shape:',f_mfccs.shape)
 
-    # Save X,Y arrays as lists to json files.
+            # Concatenating all features to 'X' variable.
+            X = np.concatenate((f_zcr, f_rms, f_mfccs), axis=2)
 
-    x_data = X.tolist() 
-    x_path = f'{target_dir}/{datatype}_features.json' # FILE SAVE PATH
-    dump(x_data, open(x_path, "w"))
+            # Preparing 'Y' as a 2D shaped variable.
+            Y = np.asarray(emotions).astype('int8')
+            Y = np.expand_dims(Y, axis=1)
 
-    y_data = Y.tolist() 
-    y_path = f'{target_dir}/{datatype}_labels.json' # FILE SAVE PATH
-    dump(y_data, open(y_path, "w"))
+            # Save X,Y arrays as lists to json files.
 
-    dump(corruped_paths, open("corrupted_paths.json", "w"))
+            x_data = X.tolist() 
+            x_path = f'{target_dir}/{datatype}/features/{path.split(".")[0].split("/")[-1]}.json' # FILE SAVE PATH
+            dump(x_data, open(x_path, "w"))
+
+            y_data = Y.tolist() 
+            y_path = f'{target_dir}/{datatype}/labels/{path.split(".")[0].split("/")[-1]}.json' # FILE SAVE PATH
+            dump(y_data, open(y_path, "w"))
 
 if images:
     print("Creating images")
@@ -261,10 +264,3 @@ else:
     construct_and_save_features(train_data, "train")
     construct_and_save_features(test_data, "test")
     construct_and_save_features(val_data, "val")
-    
-
-    print("Creating features for test data")
-
-    
-    
-    print("Creating features for validation data")
