@@ -197,11 +197,7 @@ def construct_and_save_features(data, datatype):
             # Trim silence from the beginning and the end.
             xt, index = librosa.effects.trim(normal_x, top_db=20)
             # Pad for duration equalization.
-            print("total_length:", total_length, "- len(xt):", len(xt), "| path:", path)
-
             divisable = int(np.ceil(len(xt) / preferred_cut_length))
-
-            print("divisable:", divisable)
 
             for i in range(divisable):
                 rms = []
