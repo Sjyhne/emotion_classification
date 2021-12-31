@@ -101,12 +101,12 @@ def build_resnet(num_classes, img_size=(IMG_SIZE, IMG_SIZE)):
     
 def build_lstm(num_classes, inp_shape):
     model = Sequential()
-    model.add(Bidirectional(layers.LSTM(1024, return_sequences=True), input_shape=(inp_shape)))
-    model.add(layers.LSTM(1024))
-    model.add(Dense(1024))
-    model.add(Dropout(0.2))
+    model.add(Bidirectional(layers.LSTM(512, return_sequences=True), input_shape=(inp_shape)))
+    model.add(layers.LSTM(512))
     model.add(Dense(512))
-    model.add(Dropout(0.2))
+    model.add(Dropout(0.3))
+    model.add(Dense(256))
+    model.add(Dropout(0.3))
     model.add(layers.Dense(num_classes, activation = 'softmax'))
     print(model.summary())
 

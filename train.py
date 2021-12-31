@@ -40,7 +40,7 @@ if __name__ == "__main__":
     
     dataset_name = "audio_data_emotions_features"
     
-    bsize = 128
+    bsize = 64
     
     train_data = AudioFeatureEmotionDataset(dataset_name, bsize, "train")
     test_data = AudioFeatureEmotionDataset(dataset_name, bsize, "test")

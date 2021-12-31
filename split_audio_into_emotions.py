@@ -17,7 +17,7 @@ random.seed(0)
 
 source_dir = "audio_data"
 
-test_data_size = 0.1
+test_data_size = None
 
 images = False
 
