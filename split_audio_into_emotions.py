@@ -167,7 +167,7 @@ def construct_and_save_features(data, datatype):
     # Initialize variables
     total_length = longest_audio_clip # desired frame length for all of the audio samples.
     preferred_cut_length = 44100 # = 1 second | Most common sampling rates are 44.1 kHz and 48 kHz
-    frame_length = 2048
+    frame_length = 4096
     hop_length = 512
 
     corruped_paths = []
@@ -193,8 +193,9 @@ def construct_and_save_features(data, datatype):
             normalizedsound = effects.normalize(rawsound, headroom = 5.0)
             # Transform the normalized audio to np.array of samples.
             normal_x = np.array(normalizedsound.get_array_of_samples(), dtype='float32')
+            resampled_sound = librosa.resample(normal_x, sr, preferred_cut_length)
             # Trim silence from the beginning and the end.
-            xt, index = librosa.effects.trim(normal_x, top_db=30)
+            xt, index = librosa.effects.trim(normal_x, top_db=20)
             # Pad for duration equalization.
             print("total_length:", total_length, "- len(xt):", len(xt), "| path:", path)
 
@@ -215,7 +216,7 @@ def construct_and_save_features(data, datatype):
                 # Features extraction 
                 f1 = librosa.feature.rms(segment, frame_length=frame_length, hop_length=hop_length) # Energy - Root Mean Square   
                 f2 = librosa.feature.zero_crossing_rate(segment, frame_length=frame_length, hop_length=hop_length, center=True) # ZCR      
-                f3 = librosa.feature.mfcc(segment, sr=sr, n_mfcc=13, hop_length= hop_length) # MFCC
+                f3 = librosa.feature.mfcc(segment, sr=sr, n_mfcc=40, hop_length= hop_length) # MFCC
 
                 if "OAF" in path:
                     l = path.split("_")[-1].split(".")[0]

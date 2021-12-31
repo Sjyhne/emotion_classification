@@ -226,7 +226,7 @@ class AudioFeatureEmotionDataset(Sequence):
 
 if __name__ == "__main__":
 
-    dataset = AudioFeatureEmotionDataset("audio_data_emotions_features", 32, "val")
+    dataset = AudioFeatureEmotionDataset("audio_data_emotions_features_0.1", 32, "val")
 
     d, l = dataset[0]
     print(d.shape)
