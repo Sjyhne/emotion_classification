@@ -93,24 +93,29 @@ for key, value in emotion_paths.items():
     print(key, " - number of paths:", len(value))
 
 audio_clip_values = []
-
+srs = []
 
 for _, paths in tqdm(enumerate(emotion_paths.values()), total=len(emotion_paths.values())):
     for path in paths:
         try:
             x = AudioSegment.from_file(path)
+            _, sr = librosa.load(path=path, sr=None)
             # Normalize the audio to +5.0 dBFS.
             normalizedsound = effects.normalize(x, headroom = 5.0)
             # Transform the normalized audio to np.array of samples.
             x = np.array(normalizedsound.get_array_of_samples(), dtype='float32')
             xt, index = librosa.effects.trim(x, top_db=30)
             audio_clip_values.append(len(xt))
+            srs.append(sr)
         except:
             ...
 
 longest_audio_clip = max(audio_clip_values)
 
+print("srs:", list(set(srs)))
+
 print("longest audio clip:", longest_audio_clip)
+print(srs[audio_clip_values.index(longest_audio_clip)])
 
 if os.path.exists(target_dir):
     shutil.rmtree(target_dir)
@@ -161,6 +166,7 @@ def construct_and_save_features(data, datatype):
 
     # Initialize variables
     total_length = longest_audio_clip # desired frame length for all of the audio samples.
+    preferred_cut_length = 44100 # = 1 second | Most common sampling rates are 44.1 kHz and 48 kHz
     frame_length = 2048
     hop_length = 512
 
@@ -175,10 +181,6 @@ def construct_and_save_features(data, datatype):
         print(k, len(v))
         # Initialize data lists
         for path in v:
-            rms = []
-            zcr = []
-            mfcc = []
-            emotions = []
             # Fetch the sample rate.
             _, sr = librosa.load(path=path, sr = None)
             # Load the audio file.
@@ -195,61 +197,72 @@ def construct_and_save_features(data, datatype):
             xt, index = librosa.effects.trim(normal_x, top_db=30)
             # Pad for duration equalization.
             print("total_length:", total_length, "- len(xt):", len(xt), "| path:", path)
-            padded_x = np.pad(xt, (0, total_length-len(xt)), 'constant')
-            # Noise reduction.
-            final_x = nr.reduce_noise(y=padded_x, sr=sr)
 
-            # Features extraction 
-            f1 = librosa.feature.rms(final_x, frame_length=frame_length, hop_length=hop_length) # Energy - Root Mean Square   
-            f2 = librosa.feature.zero_crossing_rate(final_x, frame_length=frame_length, hop_length=hop_length, center=True) # ZCR      
-            f3 = librosa.feature.mfcc(final_x, sr=sr, n_mfcc=13, hop_length= hop_length) # MFCC
+            divisable = int(np.ceil(len(xt) / preferred_cut_length))
 
-            if "OAF" in path:
-                l = path.split("_")[-1].split(".")[0]
-                if l == "ps":
-                    label = emotion_to_index["surprised"]
-                elif l == "fear":
-                    label = emotion_to_index["fearful"]
+            print("divisable:", divisable)
+
+            for i in range(divisable):
+                rms = []
+                zcr = []
+                mfcc = []
+                emotions = []
+                segment = xt[i*preferred_cut_length:(i+1)*preferred_cut_length]
+                if len(segment) != preferred_cut_length:
+                    segment = np.pad(segment, (0, preferred_cut_length-len(segment)), 'constant')
+                segment = nr.reduce_noise(y=segment, sr=sr)
+                
+                # Features extraction 
+                f1 = librosa.feature.rms(segment, frame_length=frame_length, hop_length=hop_length) # Energy - Root Mean Square   
+                f2 = librosa.feature.zero_crossing_rate(segment, frame_length=frame_length, hop_length=hop_length, center=True) # ZCR      
+                f3 = librosa.feature.mfcc(segment, sr=sr, n_mfcc=13, hop_length= hop_length) # MFCC
+
+                if "OAF" in path:
+                    l = path.split("_")[-1].split(".")[0]
+                    if l == "ps":
+                        label = emotion_to_index["surprised"]
+                    elif l == "fear":
+                        label = emotion_to_index["fearful"]
+                    else:
+                        label = emotion_to_index[l]
                 else:
-                    label = emotion_to_index[l]
-            else:
-                label = int(path.split("-")[2].strip("0")) - 1
+                    label = int(path.split("-")[2].strip("0")) - 1
 
-            # Filling the data lists  
-            rms.append(f1)
-            zcr.append(f2)
-            mfcc.append(f3)
-            emotions.append(label)
+                # Filling the data lists  
+                rms.append(f1)
+                zcr.append(f2)
+                mfcc.append(f3)
+                emotions.append(label)
 
 
 
-            f_rms = np.asarray(rms).astype('float32')
-            f_rms = np.swapaxes(f_rms,1,2)
-            f_zcr = np.asarray(zcr).astype('float32')
-            f_zcr = np.swapaxes(f_zcr,1,2)
-            f_mfccs = np.asarray(mfcc).astype('float32')
-            f_mfccs = np.swapaxes(f_mfccs,1,2)
+                f_rms = np.asarray(rms).astype('float32')
+                f_rms = np.swapaxes(f_rms,1,2)
+                f_zcr = np.asarray(zcr).astype('float32')
+                f_zcr = np.swapaxes(f_zcr,1,2)
+                f_mfccs = np.asarray(mfcc).astype('float32')
+                f_mfccs = np.swapaxes(f_mfccs,1,2)
 
-            print('ZCR shape:',f_zcr.shape)
-            print('RMS shape:',f_rms.shape)
-            print('MFCCs shape:',f_mfccs.shape)
+                print('ZCR shape:',f_zcr.shape)
+                print('RMS shape:',f_rms.shape)
+                print('MFCCs shape:',f_mfccs.shape)
 
-            # Concatenating all features to 'X' variable.
-            X = np.concatenate((f_zcr, f_rms, f_mfccs), axis=2)
+                # Concatenating all features to 'X' variable.
+                X = np.concatenate((f_zcr, f_rms, f_mfccs), axis=2)
 
-            # Preparing 'Y' as a 2D shaped variable.
-            Y = np.asarray(emotions).astype('int8')
-            Y = np.expand_dims(Y, axis=1)
+                # Preparing 'Y' as a 2D shaped variable.
+                Y = np.asarray(emotions).astype('int8')
+                Y = np.expand_dims(Y, axis=1)
 
-            # Save X,Y arrays as lists to json files.
+                # Save X,Y arrays as lists to json files.
 
-            x_data = X.tolist() 
-            x_path = f'{target_dir}/{datatype}/features/{path.split(".")[0].split("/")[-1]}.json' # FILE SAVE PATH
-            dump(x_data, open(x_path, "w"))
+                x_data = X.tolist() 
+                x_path = f'{target_dir}/{datatype}/features/{path.split(".")[0].split("/")[-1]}_{i}.json' # FILE SAVE PATH
+                dump(x_data, open(x_path, "w"))
 
-            y_data = Y.tolist() 
-            y_path = f'{target_dir}/{datatype}/labels/{path.split(".")[0].split("/")[-1]}.json' # FILE SAVE PATH
-            dump(y_data, open(y_path, "w"))
+                y_data = Y.tolist() 
+                y_path = f'{target_dir}/{datatype}/labels/{path.split(".")[0].split("/")[-1]}_{i}.json' # FILE SAVE PATH
+                dump(y_data, open(y_path, "w"))
 
 if images:
     print("Creating images")
