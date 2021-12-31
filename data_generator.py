@@ -17,7 +17,7 @@ from json import load
 
 from video_utils import load_video
 
-from tensorflow.keras.utils import Sequence
+from tensorflow.keras.utils import Sequence, to_categorical
 
 from audio_utils import read_audio, read_as_melspectrogram, normalize
 
@@ -209,7 +209,7 @@ class AudioFeatureEmotionDataset(Sequence):
         self.label_batches = np.asarray(self.label_batches)
 
     def __len__(self):
-        return len(self.data)
+        return len(self.feature_batches)
 
     def __getitem__(self, idx):
 
@@ -222,11 +222,11 @@ class AudioFeatureEmotionDataset(Sequence):
         feature_batch_paths = np.asarray([json.load(open(path, "r")) for path in feature_batch_paths])
         label_batch_paths = np.asarray([json.load(open(path, "r")) for path in label_batch_paths])
 
-        return feature_batch_paths.squeeze(), label_batch_paths.squeeze()
+        return feature_batch_paths.squeeze(), to_categorical(label_batch_paths.squeeze(), 8)
 
 if __name__ == "__main__":
 
-    dataset = AudioFeatureEmotionDataset("audio_data_emotions_features_0.1", 4, "val")
+    dataset = AudioFeatureEmotionDataset("audio_data_emotions_features", 32, "val")
 
     d, l = dataset[0]
     print(d.shape)
