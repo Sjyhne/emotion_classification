@@ -204,10 +204,10 @@ def construct_and_save_features(data, datatype):
                 rms = []
                 zcr = []
                 mfcc = []
-                poly = []
-                centroid = []
+                #poly = []
+                #centroid = []
+                #rolloff = []
                 emotions = []
-                rolloff = []
                 segment = xt[i*preferred_cut_length:(i+1)*preferred_cut_length]
                 if len(segment) != preferred_cut_length:
                     segment = np.pad(segment, (0, preferred_cut_length-len(segment)), 'constant')
@@ -217,9 +217,9 @@ def construct_and_save_features(data, datatype):
                 f1 = librosa.feature.rms(segment, frame_length=frame_length, hop_length=hop_length) # Energy - Root Mean Square   
                 f2 = librosa.feature.zero_crossing_rate(segment, frame_length=frame_length, hop_length=hop_length, center=True) # ZCR      
                 f3 = librosa.feature.mfcc(segment, sr=target_sr, n_mfcc=15, hop_length=hop_length) # MFCC
-                f4 = librosa.feature.poly_features(segment, n_fft=frame_length, sr=target_sr, hop_length=hop_length, order=2)
-                f5 = librosa.feature.spectral_centroid(segment, n_fft=frame_length, sr=target_sr, hop_length=hop_length)
-                f6 = librosa.feature.spectral_rolloff(segment, n_fft=frame_length, sr=target_sr, hop_length=hop_length)
+                #f4 = librosa.feature.poly_features(segment, n_fft=frame_length, sr=target_sr, hop_length=hop_length, order=2)
+                #f5 = librosa.feature.spectral_centroid(segment, n_fft=frame_length, sr=target_sr, hop_length=hop_length)
+                #f6 = librosa.feature.spectral_rolloff(segment, n_fft=frame_length, sr=target_sr, hop_length=hop_length)
 
                 if "OAF" in path:
                     l = path.split("_")[-1].split(".")[0]
@@ -236,9 +236,9 @@ def construct_and_save_features(data, datatype):
                 rms.append(f1)
                 zcr.append(f2)
                 mfcc.append(f3)
-                poly.append(f4)
-                centroid.append(f5)
-                rolloff.append(f6)
+                #poly.append(f4)
+                #centroid.append(f5)
+                #rolloff.append(f6)
                 emotions.append(label)
 
 
@@ -249,22 +249,22 @@ def construct_and_save_features(data, datatype):
                 f_zcr = np.swapaxes(f_zcr,1,2)
                 f_mfccs = np.asarray(mfcc).astype('float32')
                 f_mfccs = np.swapaxes(f_mfccs,1,2)
-                f_polys = np.asarray(poly).astype('float32')
-                f_polys = np.swapaxes(f_polys, 1, 2)
-                f_centroid = np.asarray(centroid).astype('float32')
-                f_centroid = np.swapaxes(f_centroid, 1, 2)
-                f_rolloff = np.asarray(rolloff).astype('float32')
-                f_rolloff = np.swapaxes(f_rolloff, 1, 2)
+                #f_polys = np.asarray(poly).astype('float32')
+                #f_polys = np.swapaxes(f_polys, 1, 2)
+                #f_centroid = np.asarray(centroid).astype('float32')
+                #f_centroid = np.swapaxes(f_centroid, 1, 2)
+                #f_rolloff = np.asarray(rolloff).astype('float32')
+                #f_rolloff = np.swapaxes(f_rolloff, 1, 2)
 
                 print('ZCR shape:',f_zcr.shape)
                 print('RMS shape:',f_rms.shape)
                 print('MFCCs shape:',f_mfccs.shape)
-                print('Polys shape:',f_polys.shape)
-                print('Centroid shape:',f_centroid.shape)
-                print('Rolloff shape:', f_rolloff.shape)
+                #print('Polys shape:',f_polys.shape)
+                #print('Centroid shape:',f_centroid.shape)
+                #print('Rolloff shape:', f_rolloff.shape)
 
                 # Concatenating all features to 'X' variable.
-                X = np.concatenate((f_zcr, f_rms, f_mfccs, f_polys, f_centroid, f_rolloff), axis=2)
+                X = np.concatenate((f_zcr, f_rms, f_mfccs), axis=2)
 
                 # Preparing 'Y' as a 2D shaped variable.
                 Y = np.asarray(emotions).astype('int8')
