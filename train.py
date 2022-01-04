@@ -11,20 +11,17 @@ from data_generator import AudioFeatureEmotionDataset, EmotionDataset, AudioEmot
 # Utility for running experiments.
 def run_experiment(train, test, val, model, epochs, batchsize):
     
-    filepath = "/tmp/video_classifier"
-    checkpoint = keras.callbacks.ModelCheckpoint(
-        filepath, save_weights_only=True, save_best_only=True, verbose=1
-    )
-    
     reduce_lr = keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.3,
-                              patience=5, min_lr=0.00005)
+                              patience=10, min_lr=0.00005)
+
+    mc = keras.callbacks.ModelCheckpoint('best_model.h5', monitor='val_loss', mode='min', save_best_only=True, save_weights_only=True, verbose=1)
 
     seq_model = model
     history = seq_model.fit(
         train,
         epochs=epochs,
         validation_data=val,
-        callbacks=[checkpoint, reduce_lr],
+        callbacks=[reduce_lr, mc],
     )
 
     #seq_model.load_weights(filepath)
@@ -58,6 +55,9 @@ if __name__ == "__main__":
 
     h, sequence_model = run_experiment(train_data, test_data, validation_data, model, epochs=epochs, batchsize=bsize)
     
-    json.dump(h.history, open(f"results/{dataset_name}/blstm_history_rms_{epochs}.json", 'w'))
+    print(h.history)
+    print(h)
+    
+    json.dump(str(h.history), open(f"results/{dataset_name}/blstm_history_rms_{epochs}.json", 'w'))
     
     

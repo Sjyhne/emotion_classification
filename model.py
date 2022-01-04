@@ -9,7 +9,7 @@ from tensorflow.keras.optimizers import RMSprop, Adam
 
 from data_generator import IMG_SIZE
 import tensorflow as tf
-from tensorflow.keras.layers import Flatten, Dense, Dropout, Layer, Bidirectional, LSTM, Attention, ELU
+from tensorflow.keras.layers import Flatten, Dense, Dropout, Layer, Bidirectional, LSTM, Attention, ELU, BatchNormalization
 from tensorflow.keras import Model, Sequential
 import tensorflow.keras as K
 import tensorflow.keras.initializers as initializers
@@ -101,19 +101,21 @@ def build_resnet(num_classes, img_size=(IMG_SIZE, IMG_SIZE)):
     
 def build_lstm(num_classes, inp_shape):
     model = Sequential()
-    model.add(Bidirectional(layers.LSTM(512, return_sequences=True), input_shape=(inp_shape)))
-    model.add(layers.LSTM(512))
-    model.add(Dense(512))
+    model.add(Bidirectional(layers.LSTM(256, return_sequences=True), input_shape=(inp_shape)))
+    model.add(layers.LSTM(256))
+    model.add(Dense(256, activation="relu"))
+    model.add(BatchNormalization())
     model.add(Dropout(0.3))
-    model.add(Dense(256))
+    model.add(Dense(128, activation="relu"))
+    model.add(BatchNormalization())
     model.add(Dropout(0.3))
     model.add(layers.Dense(num_classes, activation = 'softmax'))
     print(model.summary())
 
     # Compile & train   
     model.compile(loss='categorical_crossentropy', 
-                    optimizer='RMSProp',
-                    metrics=['categorical_accuracy', 'accuracy'])
+                    optimizer=tf.keras.optimizers.RMSprop(),
+                    metrics=['categorical_accuracy'])
 
     return model
 

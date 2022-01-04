@@ -33,16 +33,14 @@ else:
         target_dir = "audio_data_emotions_features"
 
 
-train_split = 0.7
-val_split = 0.15
-test_split = 0.15
+train_split = 0.8
+val_split = 0.10
+test_split = 0.10
 
 emotions = ["neutral", "calm", "happy", "sad", "angry", "fearful", "disgust", "surprised"]
 
 emotion_to_index = {val: id for id, val in enumerate(emotions)}
 index_to_emotion = {id: val for id, val in enumerate(emotions)}
-
-tess_emotion_map = {"neutral", "01"}
 
 data_types = ["train", "val", "test"]
 
@@ -166,9 +164,9 @@ def construct_and_save_features(data, datatype):
 
     # Initialize variables
     total_length = longest_audio_clip # desired frame length for all of the audio samples.
-    preferred_cut_length = 44100 # = 1 second | Most common sampling rates are 44.1 kHz and 48 kHz
+    preferred_cut_length = 88200 # = 1 second | Most common sampling rates are 44.1 kHz and 48 kHz
     target_sr = 44100
-    frame_length = 4096
+    frame_length = 2048
     hop_length = 512
 
     corruped_paths = []
