@@ -2,6 +2,7 @@ import os
 import random
 import shutil
 
+
 from audio_utils import read_as_melspectrogram, normalize
 
 import matplotlib.pyplot as plt
@@ -13,13 +14,20 @@ from json import dump
 from pydub import AudioSegment, effects
 import noisereduce as nr
 import librosa
+
+import tensorflow as tf
+
 random.seed(0)
 
 source_dir = "audio_data"
 
-test_data_size = None
+SEQ_LEN = 4
+
+test_data_size = 0.2
 
 images = True
+
+v2 = True
 
 if images == True:
     if test_data_size != None:
@@ -92,27 +100,27 @@ for key, value in emotion_paths.items():
 
 audio_clip_values = []
 srs = []
+durations = []
 
 for _, paths in tqdm(enumerate(emotion_paths.values()), total=len(emotion_paths.values())):
     for path in paths:
         try:
             x = AudioSegment.from_file(path)
-            _, sr = librosa.load(path=path, sr=None)
-            # Normalize the audio to +5.0 dBFS.
-            normalizedsound = effects.normalize(x, headroom = 5.0)
+            twav, sr = librosa.load(path=path, sr=None)
             # Transform the normalized audio to np.array of samples.
-            x = np.array(normalizedsound.get_array_of_samples(), dtype='float32')
-            xt, index = librosa.effects.trim(x, top_db=30)
-            audio_clip_values.append(len(xt))
+            audio_clip_values.append(len(x.get_array_of_samples()))
             srs.append(sr)
+            durations.append(librosa.get_duration(twav, sr))
         except:
             ...
 
 longest_audio_clip = max(audio_clip_values)
+duration_audio_clip = max(durations)
 
 print("srs:", list(set(srs)))
 
 print("longest audio clip:", longest_audio_clip)
+print("longest duration for audio clip:", duration_audio_clip)
 print(srs[audio_clip_values.index(longest_audio_clip)])
 
 if os.path.exists(target_dir):
@@ -149,6 +157,41 @@ for k, v in trainval_data.items():
     train_data[k] = train
     val_data[k] = val
 
+train_paths = []
+for k, v in train_data.items():
+    for path in v:
+        train_paths.append(path)
+
+test_paths = []
+for k, v in test_data.items():
+    for path in v:
+        test_paths.append(path)
+
+val_paths = []
+for k, v in val_data.items():
+    for path in v:
+        val_paths.append(path)
+
+assert len(train_paths) == len(list(set(train_paths)))
+assert len(test_paths) == len(list(set(test_paths)))
+assert len(val_paths) == len(list(set(val_paths)))
+print("No multiple datapoints in same datatype")
+
+for path in train_paths:
+    assert path not in test_paths
+    assert path not in val_paths
+
+for path in test_paths:
+    assert path not in train_paths
+    assert path not in val_paths
+
+for path in val_paths:
+    assert path not in train_paths
+    assert path not in test_paths
+
+print("No dataleakage between datatypes")
+
+
 def create_spectrogram_and_save_images(data, datatype):
     print("Creating image dataset")
     print(f"Moving over {datatype} data...")
@@ -159,9 +202,99 @@ def create_spectrogram_and_save_images(data, datatype):
             if not os.path.exists(dst_path):
                 tmp_img = read_as_melspectrogram(path)
                 plt.imsave(dst_path, normalize(tmp_img))
-                
 
-    
+def load_wav(file_path):
+    wav, sr = librosa.load(file_path, mono=True)
+
+    pre_emp = 0.97
+
+    wav = np.append(wav[0], wav[1:] - pre_emp * wav[:-1])
+
+    wav = tf.convert_to_tensor(wav, dtype=tf.float32)
+    sr = tf.convert_to_tensor(sr, dtype=tf.float32)
+
+    return wav, sr
+
+def slice_list(input, size):
+    input_size = len(input)
+    slice_size = input_size // size
+    remain = input_size % size
+    result = []
+    iterator = iter(input)
+    for i in range(size):
+        result.append([])
+        for j in range(slice_size):
+            result[i].append(next(iterator))
+        if remain:
+            result[i].append(next(iterator))
+            remain -= 1
+    return result
+
+def create_spectrogram_and_save_images_v2(data, datatype):
+    print("Creating image dataset V2")
+    print(f"Moving over {datatype} data..")
+
+    for k, v in tqdm(data.items(), total=len(data.items())):
+        for path in v:
+            dst_path = os.path.join(target_dir, k, datatype, path.split("/")[-1].split(".")[0] + ".npy")
+            if not os.path.exists(dst_path):
+                wav, sr = load_wav(path)
+                framed_log_mels = get_framed_mel_spectrograms(wav, sr)
+                np_log_mels = np.asarray(framed_log_mels)
+                ceil = int(np.ceil(np_log_mels.shape[0] / SEQ_LEN))
+                floor = int(np.floor(np_log_mels.shape[0] / ceil))
+                for idx in range(ceil):
+                    list_log_mels = np_log_mels.tolist()
+                    res = slice_list(list_log_mels, ceil)
+                    for tmp in res:
+                        tmptmp = tmp
+                        for _ in range(SEQ_LEN - len(tmp)):
+                            tmptmp.append(np.zeros(np.asarray(tmp).shape[1:]))
+                    
+                        assert len(tmp) == 4
+                        print(len(tmp))
+
+                        tmp = np.asarray(tmp)
+                        p = dst_path.split(".")
+                        p = ".".join(p[:-1]) + f"_{idx}." + p[-1]
+                        np.save(dst_path, tmp)
+
+def get_framed_mel_spectrograms(wav, sr=22050):
+    # The duration of clips is 3 seconds, ie. 3000 miliseconds. Do some quick math to figure out frame_length.
+    frame_length = tf.cast(sr * (25 / 1000), tf.int32)  # 25 ms
+    frame_step = tf.cast(sr * (10 / 1000), tf.int32)  # 10 ms
+    stft_out = tf.signal.stft(
+        wav,
+        frame_length=frame_length,
+        frame_step=frame_step,
+        window_fn=tf.signal.hamming_window,
+    )
+    num_spectrogram_bins = tf.shape(stft_out)[-1]
+    stft_abs = tf.abs(stft_out)
+    lower_edge_hz, upper_edge_hz = 20.0, 8000.0
+    num_mel_bins = 64
+    linear_to_mel_weight_matrix = tf.signal.linear_to_mel_weight_matrix(
+        num_mel_bins, num_spectrogram_bins, sr, lower_edge_hz, upper_edge_hz
+    )
+    mel_spectrograms = tf.tensordot(stft_abs, linear_to_mel_weight_matrix, 1)
+
+    # mel_spectrograms.set_shape(
+    #     stft_abs.shape[:-1].concatenate(linear_to_mel_weight_matrix.shape[-1:])
+    # )
+
+    log_mel_spectrograms = tf.math.log(mel_spectrograms + 1e-6)
+    log_mel_d1 = log_mel_spectrograms - tf.roll(log_mel_spectrograms, -1, axis=0)
+    log_mel_d2 = log_mel_d1 - tf.roll(log_mel_d1, -1, axis=0)
+
+    log_mel_three_channel = tf.stack(
+        [log_mel_spectrograms, log_mel_d1, log_mel_d2], axis=-1
+    )
+
+    framed_log_mels = tf.signal.frame(
+        log_mel_three_channel, frame_length=64, frame_step=32, pad_end=False, axis=0
+    )
+
+    return framed_log_mels
 
 def construct_and_save_features(data, datatype):
 
@@ -285,7 +418,14 @@ def construct_and_save_features(data, datatype):
                 y_path = f'{target_dir}/{datatype}/labels/{path.split(".")[0].split("/")[-1]}_{i}.json' # FILE SAVE PATH
                 dump(y_data, open(y_path, "w"))
 
-if images:
+if images and v2:
+    print("Creating spectrograms")
+
+    create_spectrogram_and_save_images_v2(train_data, "train")
+    create_spectrogram_and_save_images_v2(test_data, "test")
+    create_spectrogram_and_save_images_v2(val_data, "val")
+
+elif images and not v2:
     print("Creating images")
     
     create_spectrogram_and_save_images(train_data, "train")

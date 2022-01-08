@@ -1,12 +1,12 @@
 import tensorflow as tf
 
-from model import build_efficientnet, build_inception, build_lstm, build_vgg, build_resnet, build_bilstm
+from model import build_efficientnet, build_inception, build_lstm, build_vgg, build_resnet, build_bilstm, SpeechModel
 
 from tensorflow import keras
 
 import json
 
-from data_generator import AudioFeatureEmotionDataset, EmotionDataset, AudioEmotionDataset
+from data_generator import AudioFeatureEmotionDataset, EmotionDataset, AudioEmotionDatasetV2
 
 # Utility for running experiments.
 def run_experiment(train, test, val, model, epochs, batchsize):
@@ -35,23 +35,25 @@ def run_experiment(train, test, val, model, epochs, batchsize):
 
 if __name__ == "__main__":
     
-    dataset_name = "audio_data_emotions_images"
+    dataset_name = "audio_data_emotions_images_0.2"
     
-    bsize = 64
+    bsize = 4
     
-    train_data = AudioEmotionDataset(dataset_name, bsize, "train")
-    test_data = AudioEmotionDataset(dataset_name, bsize, "test")
-    validation_data = AudioEmotionDataset(dataset_name, bsize, "val")
+    train_data = AudioEmotionDatasetV2(dataset_name, bsize, "train")
+    test_data = AudioEmotionDatasetV2(dataset_name, bsize, "test")
+    validation_data = AudioEmotionDatasetV2(dataset_name, bsize, "val")
 
     #inp_shape = train_data[0][0].shape[1:]
 
     #print("inp_shape:", inp_shape)
     
-    print(train_data[0][0].shape)
+    input_shape = list(train_data[0][0][0].shape)
+    print("input_shape:", input_shape)
 
     epochs = 75
 
-    model = build_efficientnet(num_classes=8)
+    SP = SpeechModel()
+    model = SP.create_model(input_shape)
     
     #print(train_data[0][0].shape)
 
