@@ -62,7 +62,7 @@ def read_as_melspectrogram(path):
     Convert audio into a melspectrogram 
     so we can use machine learning
     '''
-    mels = audio_to_melspectrogram(read_audio(path)).transpose()
+    mels = audio_to_melspectrogram(read_audio(path))
     return mels
 
 def convert_wav_to_image(df, path):

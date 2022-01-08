@@ -35,23 +35,25 @@ def run_experiment(train, test, val, model, epochs, batchsize):
 
 if __name__ == "__main__":
     
-    dataset_name = "audio_data_emotions_features"
+    dataset_name = "audio_data_emotions_images"
     
     bsize = 64
     
-    train_data = AudioFeatureEmotionDataset(dataset_name, bsize, "train")
-    test_data = AudioFeatureEmotionDataset(dataset_name, bsize, "test")
-    validation_data = AudioFeatureEmotionDataset(dataset_name, bsize, "val")
+    train_data = AudioEmotionDataset(dataset_name, bsize, "train")
+    test_data = AudioEmotionDataset(dataset_name, bsize, "test")
+    validation_data = AudioEmotionDataset(dataset_name, bsize, "val")
 
-    inp_shape = train_data[0][0].shape[1:]
+    #inp_shape = train_data[0][0].shape[1:]
 
-    print("inp_shape:", inp_shape)
+    #print("inp_shape:", inp_shape)
+    
+    print(train_data[0][0].shape)
 
     epochs = 75
 
-    model = build_lstm(num_classes=8, inp_shape=inp_shape)
+    model = build_efficientnet(num_classes=8)
     
-    print(train_data[0][0].shape)
+    #print(train_data[0][0].shape)
 
     h, sequence_model = run_experiment(train_data, test_data, validation_data, model, epochs=epochs, batchsize=bsize)
     

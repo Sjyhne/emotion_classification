@@ -102,8 +102,8 @@ class AudioEmotionDataset(Sequence):
         print("Creating batches")
         self.image_batches = self.get_image_batches()
 
-        self.img_h = 318
-        self.img_w = 128
+        self.img_h = 128
+        self.img_w = 318
         self.channels = 3
     
         print("img_h:", self.img_h, "- img_w:", self.img_w, "- channels:", self.channels)

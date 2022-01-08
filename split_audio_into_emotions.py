@@ -19,7 +19,7 @@ source_dir = "audio_data"
 
 test_data_size = None
 
-images = False
+images = True
 
 if images == True:
     if test_data_size != None:
@@ -54,12 +54,12 @@ for path in sorted(os.listdir(source_dir)):
     if not "." in path and not "OAF" in path:
         if test_data_size != None:
             for file in sorted(os.listdir(os.path.join(source_dir, path))[:int(test_data_size*len(os.listdir(os.path.join(source_dir, path))))]):
-                if file.split("-")[0] == "03":
+                if file.split("-")[0] == "03" and file.split("-")[5] == "01":
                     emotion_index = int(file.split("-")[2].strip("0"))
                     emotion_paths[emotions[emotion_index - 1]].append(os.path.join(source_dir, path, file))
         else:
             for file in sorted(os.listdir(os.path.join(source_dir, path))):
-                if file.split("-")[0] == "03":
+                if file.split("-")[0] == "03" and file.split("-")[5] == "01":
                     emotion_index = int(file.split("-")[2].strip("0"))
                     emotion_paths[emotions[emotion_index - 1]].append(os.path.join(source_dir, path, file))
     
@@ -159,6 +159,9 @@ def create_spectrogram_and_save_images(data, datatype):
             if not os.path.exists(dst_path):
                 tmp_img = read_as_melspectrogram(path)
                 plt.imsave(dst_path, normalize(tmp_img))
+                
+
+    
 
 def construct_and_save_features(data, datatype):
 
@@ -181,6 +184,8 @@ def construct_and_save_features(data, datatype):
         # Initialize data lists
         for path in v:
             # Fetch the sample rate.
+            if "OAF" not in path and path.split("/")[-1].split("-")[5] == "02":
+                print("PATH:", path)
             _, sr = librosa.load(path=path, sr = None)
             # Load the audio file.
             try:
@@ -189,9 +194,11 @@ def construct_and_save_features(data, datatype):
                 print("Corrupted file:", path)
                 corruped_paths.append(path)
             # Normalize the audio to +5.0 dBFS.
-            normalizedsound = effects.normalize(rawsound, headroom = 5.0)
+            array_sound = np.array(rawsound.get_array_of_samples())
+            norm = np.linalg.norm(array_sound)
+            normalizedsound = array_sound/norm
             # Transform the normalized audio to np.array of samples.
-            normal_x = np.array(normalizedsound.get_array_of_samples(), dtype='float32')
+            normal_x = np.array(normalizedsound, dtype='float32')
             resampled_sound = librosa.resample(normal_x, sr, target_sr)
             # Trim silence from the beginning and the end.
             xt, index = librosa.effects.trim(resampled_sound, top_db=20)
@@ -254,9 +261,9 @@ def construct_and_save_features(data, datatype):
                 #f_rolloff = np.asarray(rolloff).astype('float32')
                 #f_rolloff = np.swapaxes(f_rolloff, 1, 2)
 
-                print('ZCR shape:',f_zcr.shape)
-                print('RMS shape:',f_rms.shape)
-                print('MFCCs shape:',f_mfccs.shape)
+                #print('ZCR shape:',f_zcr.shape)
+                #print('RMS shape:',f_rms.shape)
+                #print('MFCCs shape:',f_mfccs.shape)
                 #print('Polys shape:',f_polys.shape)
                 #print('Centroid shape:',f_centroid.shape)
                 #print('Rolloff shape:', f_rolloff.shape)
