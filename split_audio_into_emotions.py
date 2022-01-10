@@ -23,7 +23,7 @@ source_dir = "audio_data"
 
 SEQ_LEN = 4
 
-test_data_size = 0.2
+test_data_size = None
 
 images = True
 
@@ -41,9 +41,26 @@ else:
         target_dir = "audio_data_emotions_features"
 
 
+actor_split = ["Actor_" + str(i).zfill(2) for i in range(1, 25)]
+random.shuffle(actor_split)
+
+print(actor_split)
+
+
 train_split = 0.8
 val_split = 0.10
 test_split = 0.10
+
+train_actors = actor_split[0:int(train_split*len(actor_split))]
+val_actors = actor_split[int(train_split*len(actor_split)):int((train_split+val_split)*len(actor_split))]
+test_actors = actor_split[int((train_split+val_split)*len(actor_split)):]
+
+for a in train_actors:
+    assert a not in val_actors
+    assert a not in test_actors
+
+for a in val_actors:
+    assert a not in test_actors
 
 emotions = ["neutral", "calm", "happy", "sad", "angry", "fearful", "disgust", "surprised"]
 
@@ -136,7 +153,12 @@ test_data = {k: [] for k in emotions}
 for k, v in emotion_paths.items():
     l = v
     random.shuffle(l)
-    trainval, test = l[:int((train_split + val_split)*len(emotion_paths[k]))], l[int((train_split + val_split)*len(emotion_paths[k])):]
+    trainval, test = [], []
+    for p in l:
+        if p.split("/")[1] in test_actors: 
+            test.append(p)
+        else:
+            trainval.append(p)
     trainval_data[k] = trainval
     test_data[k] = test
 
@@ -152,8 +174,13 @@ val_data = {k: [] for k in emotions}
 
 for k, v in trainval_data.items():
     l = v
-    random.shuffle(v)
-    train, val = l[:int((train_split + val_split)*len(trainval_data[k]))], l[int((train_split + val_split)*len(trainval_data[k])):]
+    random.shuffle(l)
+    train, val = [], []
+    for p in l:
+        if p.split("/")[1] in train_actors: 
+            train.append(p)
+        else:
+            val.append(p)
     train_data[k] = train
     val_data[k] = val
 
@@ -252,7 +279,6 @@ def create_spectrogram_and_save_images_v2(data, datatype):
                             tmptmp.append(np.zeros(np.asarray(tmp).shape[1:]))
                     
                         assert len(tmp) == 4
-                        print(len(tmp))
 
                         tmp = np.asarray(tmp)
                         p = dst_path.split(".")

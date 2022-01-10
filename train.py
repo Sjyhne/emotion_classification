@@ -35,13 +35,18 @@ def run_experiment(train, test, val, model, epochs, batchsize):
 
 if __name__ == "__main__":
     
-    dataset_name = "audio_data_emotions_images_0.2"
+    dataset_name = "audio_data_emotions_images"
     
-    bsize = 4
+    bsize = 32
     
     train_data = AudioEmotionDatasetV2(dataset_name, bsize, "train")
     test_data = AudioEmotionDatasetV2(dataset_name, bsize, "test")
     validation_data = AudioEmotionDatasetV2(dataset_name, bsize, "val")
+    
+    print(len(train_data))
+    print(len(test_data))
+    print(len(validation_data))
+    
 
     #inp_shape = train_data[0][0].shape[1:]
 
@@ -51,13 +56,15 @@ if __name__ == "__main__":
     print("input_shape:", input_shape)
 
     epochs = 75
+    
+    exit()
 
     SP = SpeechModel()
     model = SP.create_model(input_shape)
     
     #print(train_data[0][0].shape)
 
-    h, sequence_model = run_experiment(train_data, test_data, validation_data, model, epochs=epochs, batchsize=bsize)
+    h, sequence_model = run_experiment(validation_data, test_data, train_data, model, epochs=epochs, batchsize=bsize)
     
     print(h.history)
     print(h)

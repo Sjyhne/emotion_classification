@@ -225,9 +225,9 @@ class AudioEmotionDatasetV2(Sequence):
         labels = np.empty((self.batchsize, 8))
         for i, path in enumerate(image_batch):
             data = np.load(path)
-            print(data.shape)
             images[i] = data
             l = self.get_label(path)
+            print("path:", path, "| label:", l)
             tmp_label = [0 for i in range(8)]
             tmp_label[l] = 1
             labels[i] = np.array(tmp_label)
