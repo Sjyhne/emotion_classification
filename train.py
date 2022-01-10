@@ -35,7 +35,7 @@ def run_experiment(train, test, val, model, epochs, batchsize):
 
 if __name__ == "__main__":
     
-    dataset_name = "audio_data_emotions_images_0.2"
+    dataset_name = "spectograms_0.05"
     
     bsize = 4
     
@@ -47,12 +47,13 @@ if __name__ == "__main__":
 
     #print("inp_shape:", inp_shape)
     
-    input_shape = list(train_data[0][0][0].shape)
+    input_shape = (train_data[0][0][0].shape)
+    num_classes = 6
     print("input_shape:", input_shape)
 
     epochs = 75
 
-    SP = SpeechModel()
+    SP = SpeechModel(input_shape, num_classes)
     model = SP.create_model(input_shape)
     
     #print(train_data[0][0].shape)

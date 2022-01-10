@@ -146,21 +146,22 @@ def build_bilstm(num_classes, inp_shape):
 
 
 class SpeechModel:
-    def __init__(self) -> None:
+    def __init__(self, input_shape, num_classes) -> None:
         # def __init__(self, input_shape: Tuple) -> None:
         # self.input_shape = input_shape
         print("Downloading ResNet Weights")
         # input_shape should be more than 32 in h and w : (64, 64, 3)
         self.resnet_layer = ResNet50V2(
-            include_top=False, weights="imagenet", input_shape=(64, 64, 3)
+            include_top=False, weights="imagenet", input_shape=(input_shape[1], input_shape[2], input_shape[3])
         )
+        self.num_classes = num_classes
         self.lossFn = CategoricalCrossentropy(from_logits=True)
         self.optimizer = Adam(1e-4)
         self.conv_model = None  # Create model on call
         self.td_model = None  # Create model on call
 
-    def create_conv_model(self):
-        conv_input_layer = L.Input((64, 64, 3))
+    def create_conv_model(self, input_shape):
+        conv_input_layer = L.Input((input_shape[1], input_shape[2], input_shape[3]))
         resnet_output = self.resnet_layer(conv_input_layer)  # (2,2,2048)
         average_pool = L.AveragePooling2D((2, 2))(resnet_output)  # (1,1,2048)
         flatten = L.Flatten()(average_pool)  # (2048)
@@ -178,7 +179,7 @@ class SpeechModel:
     def create_model(self, input_shape: List):
         # td_input_layer = L.Input(self.input_shape)
         td_input_layer = L.Input(input_shape)
-        self.conv_model = self.create_conv_model()
+        self.conv_model = self.create_conv_model(input_shape)
         td_conv_layer = L.TimeDistributed(self.conv_model)(
             td_input_layer
         )  # output: (8, 2048)
@@ -206,7 +207,7 @@ class SpeechModel:
         td_dense = L.Dense(128, activation="relu")(td_dense)
         td_dense = L.Dropout(0.25)(td_dense)
 
-        td_output_layer = L.Dense(8)(td_dense)
+        td_output_layer = L.Dense(self.num_classes)(td_dense)
 
         td_model = Model(td_input_layer, td_output_layer)
 
