@@ -1,7 +1,7 @@
 import os
 import random
 
-from .utils import get_actor_split, get_duration_span
+import dataset_loaders.utils as utils
 
 import librosa
 import numpy as np
@@ -52,7 +52,7 @@ def get_datatype_paths(filepaths):
 
     random.shuffle(filepaths)
 
-    train_actors, val_actors, test_actors = get_actor_split(get_actors(filepaths), [TRAIN_SPLIT, VAL_SPLIT, TEST_SPLIT])
+    train_actors, val_actors, test_actors = utils.get_actor_split(get_actors(filepaths), [TRAIN_SPLIT, VAL_SPLIT, TEST_SPLIT])
 
     for path in filepaths:
         if not get_emovo_label(path) == "N/A":
@@ -96,7 +96,7 @@ def get_data(datadir):
 
     print("EMOVO class diversity:", class_diversity)
 
-    print("EMOVO file duration span:", get_duration_span(filepaths))
+    print("EMOVO file duration span:", utils.get_duration_span(filepaths))
 
     print("Datatype sizes (train, val, test):", len(train_paths), "|", len(val_paths), "|", len(test_paths))
     print()
