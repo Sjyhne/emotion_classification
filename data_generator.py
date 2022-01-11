@@ -13,6 +13,8 @@ import random
 from tqdm import tqdm
 import librosa
 
+from data import get_label
+
 from json import load
 
 from video_utils import load_video
@@ -173,7 +175,7 @@ class AudioEmotionDatasetV2(Sequence):
 
         self.seq_len = 4
         self.img_h = 64
-        self.img_w = 64
+        self.img_w = 128
         self.channels = 3
     
         print("seq_len:", self.seq_len, "- img_h:", self.img_h, "- img_w:", self.img_w, "- channels:", self.channels)
@@ -182,9 +184,8 @@ class AudioEmotionDatasetV2(Sequence):
     
     def get_image_paths(self):
         image_paths = []
-        for emotion in os.listdir(self.path_to_images):
-            for file in os.listdir(os.path.join(self.path_to_images, emotion, self.datatype)):
-                image_paths.append(os.path.join(self.path_to_images, emotion, self.datatype, file))
+        for file in os.listdir(os.path.join(self.path_to_images, self.datatype)):
+            image_paths.append(os.path.join(self.path_to_images, self.datatype, file))
         
         random.shuffle(image_paths)
         return image_paths
@@ -213,22 +214,16 @@ class AudioEmotionDatasetV2(Sequence):
     def __len__(self):
         return math.ceil(len(self.image_paths)/self.batchsize)
 
-    def get_label(self, path):
-        emotion = path.split("/")[1]
-        idx = EMOTIONS.index(emotion)
-        return idx
-
 
     def __getitem__(self, idx):
         image_batch = self.image_batches[idx]
         images = np.empty((self.batchsize, self.seq_len, self.img_h, self.img_w, self.channels))
-        labels = np.empty((self.batchsize, 8))
+        labels = np.empty((self.batchsize, 6))
         for i, path in enumerate(image_batch):
             data = np.load(path)
             images[i] = data
-            l = self.get_label(path)
-            print("path:", path, "| label:", l)
-            tmp_label = [0 for i in range(8)]
+            l = get_label(path)
+            tmp_label = [0 for i in range(6)]
             tmp_label[l] = 1
             labels[i] = np.array(tmp_label)
 

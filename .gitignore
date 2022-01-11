@@ -139,3 +139,7 @@ howamifeeling/node_modules
 IEMOCAP*
 dataverse_files.zip
 *.h5
+*.zip
+spectograms*
+datasets/
+datasets.zip
