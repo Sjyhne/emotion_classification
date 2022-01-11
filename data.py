@@ -1,6 +1,7 @@
 from cv2 import merge
 import numpy as np
 import matplotlib.pyplot as plt
+from dataset_loaders.cremad import get_cremad_data, get_cremad_label
 import librosa
 from dataset_loaders.emodb import get_emodb_data, get_emodb_label
 from dataset_loaders.shemo import get_shemo_data, get_shemo_label
@@ -20,6 +21,15 @@ EMOTION_MAP = {
     "sad": 4,
     "surprise": 5,
 }
+
+def get_class_diversity(filepaths):
+    class_diversity = {v: 0 for v in EMOTION_MAP.values()}
+    for filepath in filepaths:
+        label = get_label(filepath)
+        if label != "N/A":
+            class_diversity[label] += 1
+    
+    return class_diversity
 
 def combine_datatypes(data):
     result_data = []
@@ -42,10 +52,11 @@ def merge_datasets(data_percentage=1.0):
     train_emovo, val_emovo, test_emovo = get_emovo_data()
     train_emodb, val_emodb, test_emodb = get_emodb_data()
     train_shemo, val_shemo, test_shemo = get_shemo_data()
+    train_cremad, val_cremad, test_cremad = get_cremad_data()
 
-    train_paths = combine_datatypes([train_emovo, train_emodb, train_shemo])
-    val_paths = combine_datatypes([val_emovo, val_emodb, val_shemo])
-    test_paths = combine_datatypes([test_emovo, test_emodb, test_shemo])
+    train_paths = combine_datatypes([train_emovo, train_emodb, train_shemo, train_cremad])
+    val_paths = combine_datatypes([val_emovo, val_emodb, val_shemo, val_cremad])
+    test_paths = combine_datatypes([test_emovo, test_emodb, test_shemo, test_cremad])
 
     print("Nr of audio-files (train, val, test):", len(train_paths), len(val_paths), len(test_paths))
 
@@ -80,6 +91,10 @@ def create_spectogram_dataset(target_dir, split_val=1.0):
     
     tr, va, te = merge_datasets(split_val)
 
+    print("Training class diversity:", get_class_diversity(tr))
+    print("Val class diversity:", get_class_diversity(va))
+    print("Test class diversity:", get_class_diversity(te))
+
     create_spectrogram_and_save_images(tr, "train", target_dir)
     create_spectrogram_and_save_images(va, "val", target_dir)
     create_spectrogram_and_save_images(te, "test", target_dir)
@@ -90,6 +105,8 @@ def get_label(path):
         label = get_emovo_label(path)
     elif "ShEMO" in path:
         label = get_shemo_label(path)
+    elif "CREMA-D" in path:
+        label = get_cremad_label(path)
     else:
         label = get_emodb_label(path)
     return EMOTION_MAP[label]

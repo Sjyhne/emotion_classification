@@ -1,7 +1,8 @@
 import os
 import random
 
-from .utils import get_actor_split, get_duration_span
+import dataset_loaders.utils as utils
+
 
 import librosa
 import numpy as np
@@ -24,8 +25,8 @@ VAL_SPLIT = 0.2
 
 def get_file_paths(datadir):
     filepaths = []
-    for filepath in os.listdir(DATA_DIR):
-        filepaths.append(os.path.join(DATA_DIR, filepath))
+    for filepath in os.listdir(datadir):
+        filepaths.append(os.path.join(datadir, filepath))
     
     return filepaths
 
@@ -41,7 +42,7 @@ def get_datatype_paths(filepaths):
 
     random.shuffle(filepaths)
 
-    train_actors, val_actors, test_actors = get_actor_split(get_actors(filepaths), [TRAIN_SPLIT, VAL_SPLIT, TEST_SPLIT])
+    train_actors, val_actors, test_actors = utils.get_actor_split(get_actors(filepaths), [TRAIN_SPLIT, VAL_SPLIT, TEST_SPLIT])
 
     for path in filepaths:
         if not get_emodb_label(path) == "N/A":
@@ -75,7 +76,7 @@ def get_data(datadir):
 
     print("EMO-DB class diversity:", class_diversity)
 
-    print("EMO-DB file duration span:", get_duration_span(filepaths))
+    print("EMO-DB file duration span:", utils.get_duration_span(filepaths))
 
     print("Datatype sizes (train, val, test):", len(train_paths), "|", len(val_paths), "|", len(test_paths))
     print()
