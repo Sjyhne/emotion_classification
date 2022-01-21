@@ -176,7 +176,6 @@ def create_spectogram_dataset(target_dir, split_val=1.0):
     
 
 def get_label(path):
-
     if "EMOVO" in path:
         label = get_emovo_label(path)
     elif "ShEMO" in path:
