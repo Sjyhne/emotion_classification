@@ -25,17 +25,21 @@ def load_video(path, max_frames=0, resize=(IMG_SIZE, IMG_SIZE)):
 
     batches = []
     labels = []
+    frame_count = 0
     try:
         while True:
             ret, frame = cap.read()
             if not ret:
                 break
-            frame = crop_center_square(frame)
-            frame = cv2.resize(frame, resize)
-            frame = frame[:, :, [2, 1, 0]]
+            if frame_count % 4 == 0:
+                frame = crop_center_square(frame)
+                frame = cv2.resize(frame, resize)
+                frame = frame[:, :, [2, 1, 0]]
+
+                frames.append(frame)
+                frame_labels.append(np.array(label))
             
-            frames.append(frame)
-            frame_labels.append(np.array(label))
+            frame_count += 1
 
             if len(frames) == BATCH_SIZE:
                 batches.append(np.array(frames))

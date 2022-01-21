@@ -13,6 +13,8 @@ import random
 from tqdm import tqdm
 import librosa
 
+from data import get_label
+
 from json import load
 
 from video_utils import load_video
@@ -20,6 +22,8 @@ from video_utils import load_video
 from tensorflow.keras.utils import Sequence, to_categorical
 
 from audio_utils import read_audio, read_as_melspectrogram, normalize
+
+EMOTIONS = ["neutral", "calm", "happy", "sad", "angry", "fearful", "disgust", "surprised"]
 
 class EmotionDataset(Sequence):
 
@@ -102,8 +106,8 @@ class AudioEmotionDataset(Sequence):
         print("Creating batches")
         self.image_batches = self.get_image_batches()
 
-        self.img_h = 318
-        self.img_w = 128
+        self.img_h = 128
+        self.img_w = 318
         self.channels = 3
     
         print("img_h:", self.img_h, "- img_w:", self.img_w, "- channels:", self.channels)
@@ -151,6 +155,135 @@ class AudioEmotionDataset(Sequence):
             images[i] = plt.imread(path)[:, :, :3]
             l = int(path.split("/")[-1].split("-")[2].strip("0")) - 1
             tmp_label = [0 for i in range(8)]
+            tmp_label[l] = 1
+            labels[i] = np.array(tmp_label)
+
+        return images, labels
+
+
+class AudioFeatureDataset(Sequence):
+    def __init__(self, path_to_features, batch_size, datatype="train"):
+        super().__init__()
+
+        self.path_to_features = path_to_features
+        self.datatype = datatype
+        print("Creating AudioFeatureDataset from", self.path_to_features, "of datatype", self.datatype)
+        print("Getting image paths")
+        self.feature_paths = self.get_feature_paths()
+        self.batchsize = batch_size
+        print("Creating batches")
+        self.feature_batches = self.get_feature_batches()
+
+    def get_feature_paths(self):
+        feature_paths = []
+        for file in os.listdir(os.path.join(self.path_to_features, self.datatype)):
+            feature_paths.append(os.path.join(self.path_to_features, self.datatype, file))
+        
+        return feature_paths
+
+    def get_feature_batches(self):
+        batches = []
+        batch = []
+        for path in self.feature_paths:
+            batch.append(path)
+            if len(batch) == self.batchsize:
+                batches.append(batch)
+                batch = []
+            
+        if len(batch) != self.batchsize:
+            while True:
+                batch.append(random.choice(self.feature_paths))
+                if len(batch) >= self.batchsize:
+                    print(len(batch), ">=", self.batchsize)
+                    break
+            
+            batches.append(batch)
+        
+        return batches
+
+
+    def __len__(self):
+        return len(self.feature_batches)
+
+
+    def __getitem__(self, idx):
+        feature_batch = self.feature_batches[idx]
+        features = np.empty((self.batchsize, 128))
+        labels = np.empty((self.batchsize, 6))
+        for i, path in enumerate(feature_batch):
+            data = np.load(path)
+            features[i] = data
+            l = get_label(path)
+            tmp_label = [0 for i in range(6)]
+            tmp_label[l] = 1
+            labels[i] = np.array(tmp_label)
+
+        
+        return features, labels
+
+class AudioEmotionDatasetV2(Sequence):
+    def __init__(self, path_to_images, batchsize, datatype="train") -> None:
+        super().__init__()
+        self.path_to_images = path_to_images
+        self.datatype = datatype
+        print("Creating AudioEmotionDataset from", self.path_to_images, "of datatype", self.datatype)
+        print("Getting image paths")
+        self.image_paths = self.get_image_paths()
+        self.batchsize = batchsize
+        print("Creating batches")
+        self.image_batches = self.get_image_batches()
+
+        self.seq_len = 4
+        self.img_h = 64
+        self.img_w = 128
+        self.channels = 3
+    
+        print("seq_len:", self.seq_len, "- img_h:", self.img_h, "- img_w:", self.img_w, "- channels:", self.channels)
+
+
+    
+    def get_image_paths(self):
+        image_paths = []
+        for file in os.listdir(os.path.join(self.path_to_images, self.datatype)):
+            image_paths.append(os.path.join(self.path_to_images, self.datatype, file))
+        
+        random.shuffle(image_paths)
+        return image_paths
+    
+    def get_image_batches(self):
+        batches = []
+        batch = []
+        for path in self.image_paths:
+            batch.append(path)
+            if len(batch) == self.batchsize:
+                batches.append(batch)
+                batch = []
+            
+        if len(batch) != self.batchsize:
+            while True:
+                batch.append(random.choice(self.image_paths))
+                if len(batch) >= self.batchsize:
+                    print(len(batch), ">=", self.batchsize)
+                    break
+            
+            batches.append(batch)
+        
+        return batches
+
+
+    def __len__(self):
+        return math.ceil(len(self.image_paths)/self.batchsize)
+
+
+    def __getitem__(self, idx):
+        image_batch = self.image_batches[idx]
+        images = np.empty((self.batchsize, self.seq_len, self.img_h, self.img_w, self.channels))
+        labels = np.empty((self.batchsize, 6))
+        for i, path in enumerate(image_batch):
+            data = np.load(path)
+            images[i] = data
+            l = get_label(path)
+            tmp_label = [0 for i in range(6)]
             tmp_label[l] = 1
             labels[i] = np.array(tmp_label)
 
@@ -226,7 +359,7 @@ class AudioFeatureEmotionDataset(Sequence):
 
 if __name__ == "__main__":
 
-    dataset = AudioFeatureEmotionDataset("audio_data_emotions_features_0.1", 32, "val")
+    dataset = AudioFeatureDataset("vggish_features_0.2", 4, "val")
 
     d, l = dataset[0]
     print(d.shape)

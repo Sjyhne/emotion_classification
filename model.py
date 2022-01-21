@@ -1,3 +1,4 @@
+from typing import List
 from tensorflow.keras import layers
 from tensorflow.keras.applications.efficientnet import EfficientNetB7
 from tensorflow.keras.applications.vgg16 import VGG16
@@ -9,12 +10,20 @@ from tensorflow.keras.optimizers import RMSprop, Adam
 
 from data_generator import IMG_SIZE
 import tensorflow as tf
-from tensorflow.keras.layers import Flatten, Dense, Dropout, Layer, Bidirectional, LSTM, Attention, ELU
+from tensorflow.keras.layers import Flatten, Dense, Dropout, Layer, Bidirectional, LSTM, Attention, ELU, BatchNormalization
 from tensorflow.keras import Model, Sequential
 import tensorflow.keras as K
 import tensorflow.keras.initializers as initializers
 import tensorflow.keras.regularizers as regularizers
 import tensorflow.keras.constraints as constraints
+
+# from typing import Tuple
+from tensorflow.keras import layers as L
+from tensorflow.keras.models import Model
+from tensorflow.keras.applications.resnet_v2 import ResNet50V2
+from tensorflow import reduce_mean
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.losses import SparseCategoricalCrossentropy, CategoricalCrossentropy
 
 def build_efficientnet(num_classes, img_size=(IMG_SIZE, IMG_SIZE), channels=3):
     
@@ -101,19 +110,21 @@ def build_resnet(num_classes, img_size=(IMG_SIZE, IMG_SIZE)):
     
 def build_lstm(num_classes, inp_shape):
     model = Sequential()
-    model.add(Bidirectional(layers.LSTM(1024, return_sequences=True), input_shape=(inp_shape)))
-    model.add(layers.LSTM(1024))
-    model.add(Dense(1024))
-    model.add(Dropout(0.2))
-    model.add(Dense(512))
-    model.add(Dropout(0.2))
+    model.add(Bidirectional(layers.LSTM(256, return_sequences=True), input_shape=(inp_shape)))
+    model.add(layers.LSTM(256))
+    model.add(Dense(256, activation="relu"))
+    model.add(BatchNormalization())
+    model.add(Dropout(0.3))
+    model.add(Dense(128, activation="relu"))
+    model.add(BatchNormalization())
+    model.add(Dropout(0.3))
     model.add(layers.Dense(num_classes, activation = 'softmax'))
     print(model.summary())
 
     # Compile & train   
     model.compile(loss='categorical_crossentropy', 
-                    optimizer='RMSProp',
-                    metrics=['categorical_accuracy', 'accuracy'])
+                    optimizer=tf.keras.optimizers.RMSprop(),
+                    metrics=['categorical_accuracy'])
 
     return model
 
@@ -132,3 +143,107 @@ def build_bilstm(num_classes, inp_shape):
                   metrics=['accuracy', "categorical_accuracy"])
     
     return model
+
+def build_feature_model(num_classes, inp_shape):
+
+    model = Sequential()
+    model.add(Dense(256, activation="relu"))
+    model.add(BatchNormalization())
+    model.add(Dropout(0.1))
+    model.add(Dense(128, activation="relu"))
+    model.add(BatchNormalization())
+    model.add(Dropout(0.1))
+    model.add(Dense(64, activation="relu"))
+    model.add(BatchNormalization())
+    model.add(Dropout(0.1))
+    model.add(Dense(32, activation="relu"))
+    model.add(BatchNormalization())
+    model.add(Dropout(0.1))
+    model.add(Dense(16, activation="relu"))
+    model.add(Dense(num_classes))
+
+    model.compile(loss=CategoricalCrossentropy(from_logits=True),
+        optimizer="RMSprop",
+        metrics=["categorical_accuracy", "accuracy"])
+
+    return model
+
+
+class SpeechModel:
+    def __init__(self, input_shape, num_classes) -> None:
+        # def __init__(self, input_shape: Tuple) -> None:
+        # self.input_shape = input_shape
+        print("Downloading ResNet Weights")
+        # input_shape should be more than 32 in h and w : (64, 64, 3)
+        self.resnet_layer = ResNet50V2(
+            include_top=False, weights=None, input_shape=(input_shape[1], input_shape[2], input_shape[3])
+        )
+        self.num_classes = num_classes
+        self.lossFn = CategoricalCrossentropy(from_logits=True)
+        self.optimizer = Adam(1e-4)
+        self.conv_model = None  # Create model on call
+        self.td_model = None  # Create model on call
+
+    def create_conv_model(self, input_shape):
+        conv_input_layer = L.Input((input_shape[1], input_shape[2], input_shape[3]))
+        resnet_output = self.resnet_layer(conv_input_layer)  # (2,2,2048)
+        average_pool = L.AveragePooling2D((2, 2))(resnet_output)  # (1,1,2048)
+        flatten = L.Flatten()(average_pool)  # (2048)
+
+        conv_model = Model(conv_input_layer, flatten)
+
+        return conv_model
+
+    def model_summary(self):
+        if self.td_model is None:
+            print("Create model first by calling SpeechModel.create_model()")
+            return None
+        return self.td_model.summary()
+
+    def create_model(self, input_shape: List):
+        # td_input_layer = L.Input(self.input_shape)
+        td_input_layer = L.Input(input_shape)
+        self.conv_model = self.create_conv_model(input_shape)
+        td_conv_layer = L.TimeDistributed(self.conv_model)(
+            td_input_layer
+        )  # output: (8, 2048)
+        td_bilstm = L.Bidirectional(L.LSTM(128, return_sequences=True))(
+            td_conv_layer
+        )  # (8, 256)
+
+        # Attention layer, returns matmul(distribution, value)
+        # distribution is of shape [batch_size, Tq, Tv] while value is of shape [batch_size, Tv, dim]
+        # The inner dimentinons except batch_size are same, we get output of dimention [batch_size, tq, dim]
+        # Here, our Query and Value dimentions are 8, 256. That is, Tv, Tq = 8 and dim = 256
+        # Final output of attention layer is [batch_size, 8, 256]
+        bilstm_attention_seq = L.Attention(use_scale=True)(
+            [td_bilstm, td_bilstm]
+        )  # (8, 256)
+        bilstm_attention = reduce_mean(
+            bilstm_attention_seq, axis=-2
+        )  # Calculate mean along each sequence
+        # There is some error in this attention layer (could be the reason loss is going to nan)
+
+        # These dimentions are changed due to the different conv model being used.
+        td_dense = L.Dense(256, activation="relu")(bilstm_attention)
+        td_dense = L.Dropout(0.25)(td_dense)
+        td_dense = L.Dense(128, activation="relu")(td_dense)
+        td_dense = L.Dense(128, activation="relu")(td_dense)
+        td_dense = L.Dropout(0.25)(td_dense)
+
+        td_output_layer = L.Dense(self.num_classes)(td_dense)
+
+        td_model = Model(td_input_layer, td_output_layer)
+
+        # Compile here
+        td_model.compile(optimizer=self.optimizer, loss=self.lossFn, metrics=["acc", "categorical_accuracy"])
+        self.td_model = td_model
+        return self.td_model
+
+
+
+
+if __name__ == "__main__":
+    SP = SpeechModel()
+    model = SP.create_model()
+    print(model.summary())
